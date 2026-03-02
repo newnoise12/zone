@@ -1,0 +1,2366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZONE — A City Crime Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IM+Fell+English:ital@0;1&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #1c1710;   /* deep tobacco */
+    --surface:  #231e14;   /* dark parchment */
+    --surface2: #2a2418;   /* slightly lighter */
+    --border:   #4a3f28;   /* aged ink line */
+    --border2:  #6b5a38;   /* lighter rule */
+    --text:     #e8dfc8;   /* aged newsprint */
+    --text-dim: #a89870;   /* faded ink */
+    --text-muted: #6b5a38; /* very faded */
+    --accent:   #c8961e;   /* old gold / amber ink */
+    --accent2:  #7a9e8a;   /* muted verdigris */
+    --danger:   #b84a32;   /* rust red */
+    --warn:     #b8822a;   /* ochre */
+    --good:     #6a9e6a;   /* muted olive green */
+    --zone1: #c8961e;
+    --zone2: #b84a32;
+    --zone3: #7a9e8a;
+    --zone4: #5a8aaa;
+    --zone5: #8a6aaa;
+    --paper: #f0e8d0;      /* for overlays/cards that should feel like paper */
+    --ink:   #1c1710;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Libre Baskerville', serif;
+    min-height: 100vh; overflow-x: hidden;
+  }
+
+  /* ── ORNAMENTAL RULES ── */
+  .rule-double {
+    border: none;
+    border-top: 3px double var(--border2);
+    margin: 0.75rem 0;
+  }
+  .rule-single {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.5rem 0;
+  }
+
+  /* INTRO */
+  #intro {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 100; padding: 2rem; text-align: center;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(74,63,40,0.08) 28px, rgba(74,63,40,0.08) 29px);
+  }
+  #intro .masthead-rule {
+    width: 100%; max-width: 520px;
+    border-top: 4px double var(--border2);
+    border-bottom: 1px solid var(--border2);
+    padding: 0.35rem 0;
+    margin-bottom: 0.6rem;
+    position: relative;
+  }
+  #intro .subtitle {
+    font-family: 'Special Elite', cursive; font-size: 0.78rem; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.4rem;
+  }
+  #intro h1 {
+    font-family: 'IM Fell English', serif;
+    font-size: clamp(4.5rem, 14vw, 9rem); font-weight: 400;
+    letter-spacing: 0.04em; line-height: 0.88; color: var(--accent);
+    margin-bottom: 0.5rem; text-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+  }
+  #intro .dateline {
+    font-family: 'Special Elite', cursive; font-size: 0.68rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 2rem;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    padding: 0.3rem 1.5rem; display: inline-block;
+  }
+  #intro p {
+    max-width: 480px; font-size: 0.95rem; line-height: 1.8;
+    color: var(--text-dim); margin-bottom: 2.5rem;
+    font-family: 'Libre Baskerville', serif; font-style: italic;
+  }
+  .btn-primary {
+    background: transparent; color: var(--accent);
+    border: 2px solid var(--accent);
+    padding: 0.85rem 2.5rem;
+    font-family: 'Special Elite', cursive; font-size: 0.88rem; letter-spacing: 0.18em;
+    text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary:hover { background: var(--accent); color: var(--ink); }
+
+  /* LEGEND */
+  .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-bottom: 1rem; }
+  .legend-item {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-family: 'Special Elite', cursive; font-size: 0.58rem;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim);
+  }
+  .legend-dot    { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-diamond { width: 9px; height: 9px; transform: rotate(45deg); flex-shrink: 0; }
+  .legend-square { width: 9px; height: 9px; flex-shrink: 0; }
+
+  /* MAIN GAME */
+  #game { display: none; min-height: 100vh; }
+  .game-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.55rem 1.5rem; border-bottom: 3px double var(--border2);
+    background: var(--surface); flex-wrap: wrap; gap: 0.5rem;
+  }
+  .game-header h2 {
+    font-family: 'IM Fell English', serif; font-size: 1.6rem;
+    color: var(--accent); font-weight: 400; letter-spacing: 0.05em;
+  }
+  .year-display {
+    font-family: 'Special Elite', cursive; font-size: 1.05rem; color: var(--text);
+    background: var(--surface2); padding: 0.3rem 1rem;
+    border: 1px solid var(--border2); letter-spacing: 0.08em;
+  }
+  .budget-display {
+    font-family: 'Special Elite', cursive; font-size: 0.82rem; color: var(--accent2);
+    letter-spacing: 0.04em;
+  }
+  .migration-ticker {
+    font-family: 'Special Elite', cursive; font-size: 0.6rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-muted);
+    background: var(--surface2); padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border);
+  }
+  .migration-ticker span { color: var(--accent); }
+
+  .game-body { display: grid; grid-template-columns: 1fr 320px; min-height: calc(100vh - 56px); }
+  @media (max-width: 768px) { .game-body { grid-template-columns: 1fr; } }
+
+  .map-area {
+    padding: 1.25rem; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start; gap: 0.75rem;
+  }
+  .map-title {
+    font-family: 'Special Elite', cursive; font-size: 0.62rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--text-muted); align-self: flex-start;
+    padding-bottom: 0.35rem; border-bottom: 1px solid var(--border);
+    width: 100%;
+  }
+
+  /* MAP */
+  .city-map-wrap {
+    position: relative; width: min(460px, 88vw); height: min(460px, 88vw);
+  }
+  .city-map { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #migrationCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .zone-ring {
+    position: absolute; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .zone-ring:hover  { filter: brightness(1.25); }
+  .zone-ring.selected { filter: brightness(1.4) drop-shadow(0 0 14px currentColor); }
+
+  #z5 { inset: 0;   background: radial-gradient(circle, transparent 76%, #8a6aaa14 76%, #8a6aaa28 100%); border: 1.5px solid #8a6aaa40; }
+  #z4 { inset: 12%; background: radial-gradient(circle, transparent 72%, #5a8aaa14 72%, #5a8aaa28 100%); border: 1.5px solid #5a8aaa40; }
+  #z3 { inset: 24%; background: radial-gradient(circle, transparent 68%, #7a9e8a14 68%, #7a9e8a28 100%); border: 1.5px solid #7a9e8a40; }
+  #z2 { inset: 36%; background: radial-gradient(circle, transparent 60%, #b84a3214 60%, #b84a3235 100%); border: 1.5px solid #b84a3250; }
+  #z1 { inset: 48%; background: #c8961e20; border: 1.5px solid #c8961e60; }
+
+  .zone-label {
+    font-family: 'Special Elite', cursive; font-size: 0.5rem; letter-spacing: 0.06em;
+    text-align: center; pointer-events: none; text-transform: uppercase;
+  }
+
+  /* STATS */
+  .city-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; width: min(460px, 88vw); }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-top: 2px solid var(--border2);
+    padding: 0.6rem; text-align: center;
+  }
+  .stat-card .val {
+    font-family: 'IM Fell English', serif; font-size: 1.5rem;
+    font-weight: 400; line-height: 1; color: var(--accent);
+  }
+  .stat-card .lbl {
+    font-family: 'Special Elite', cursive; font-size: 0.48rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-muted); margin-top: 0.2rem;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--surface); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-section h3 {
+    font-family: 'Special Elite', cursive; font-size: 0.58rem;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 0.75rem;
+    padding-bottom: 0.3rem; border-bottom: 1px solid var(--border);
+  }
+
+  /* TOKEN ALLOCATION UI */
+  input[type=range] { display: none; }
+  .resource-row { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 0.75rem; }
+  .resource-icon { font-size: 0.9rem; width: 22px; text-align: center; flex-shrink: 0; padding-top: 0.1rem; }
+  .resource-info { flex: 1; min-width: 0; }
+  .resource-name {
+    font-family: 'Special Elite', cursive; font-size: 0.58rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 0.3rem;
+  }
+  .resource-hint {
+    font-size: 0.52rem; color: var(--text-muted); margin-top: 0.2rem;
+    line-height: 1.4; font-family: 'Courier Prime', monospace;
+  }
+
+  .token-row { display: flex; align-items: center; gap: 0.4rem; }
+  .token-btn {
+    width: 22px; height: 22px;
+    border: 1px solid var(--border2); background: transparent;
+    color: var(--text-dim); font-size: 0.9rem; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
+    font-family: 'Courier Prime', monospace;
+  }
+  .token-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(200,150,30,0.08); }
+  .token-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+  .token-btn.minus:hover { border-color: var(--danger); color: var(--danger); background: rgba(184,74,50,0.08); }
+
+  .token-pips { display: flex; gap: 3px; flex-wrap: wrap; flex: 1; }
+  .pip {
+    width: 9px; height: 9px;
+    border: 1px solid var(--border); background: transparent;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .pip.filled          { background: var(--accent);  border-color: var(--accent); }
+  .pip.filled.warn     { background: var(--warn);    border-color: var(--warn); }
+  .pip.filled.danger   { background: var(--danger);  border-color: var(--danger); }
+  .pip.filled.good     { background: var(--good);    border-color: var(--good); }
+  .token-val {
+    font-family: 'Courier Prime', monospace; font-size: 0.65rem;
+    color: var(--accent); width: 16px; text-align: right; flex-shrink: 0;
+  }
+
+  /* ROUND SUMMARY OVERLAY */
+  #summary-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(10,8,4,0.94); z-index: 60;
+    align-items: center; justify-content: center; padding: 1rem;
+  }
+  #summary-overlay.show { display: flex; }
+  .summary-card {
+    background: var(--surface); max-width: 600px; width: 100%; max-height: 90vh;
+    overflow-y: auto; padding: 2rem;
+    border: 1px solid var(--border2);
+    border-top: 4px double var(--border2);
+    border-bottom: 4px double var(--border2);
+  }
+  .summary-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 3px double var(--border2);
+  }
+  .summary-header h3 {
+    font-family: 'IM Fell English', serif; font-size: 1.4rem;
+    color: var(--accent); font-weight: 400;
+  }
+  .summary-header .summary-year {
+    font-family: 'Special Elite', cursive; font-size: 0.62rem;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted);
+  }
+  .summary-zone-row {
+    display: grid; grid-template-columns: 80px 1fr 1fr 1fr;
+    gap: 0.5rem; align-items: center;
+    padding: 0.45rem 0; border-bottom: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace; font-size: 0.62rem;
+  }
+  .summary-zone-row.header {
+    color: var(--text-muted); font-size: 0.52rem; letter-spacing: 0.1em;
+    text-transform: uppercase; padding-bottom: 0.4rem;
+    font-family: 'Special Elite', cursive;
+  }
+  .summary-zone-name { font-size: 0.65rem; }
+  .delta { display: flex; align-items: center; gap: 0.3rem; }
+  .delta-val { font-size: 0.7rem; }
+  .up   { color: var(--danger); }
+  .down { color: var(--good); }
+  .flat { color: var(--text-muted); }
+
+  .summary-insight {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem; color: var(--text-dim);
+    line-height: 1.65; margin-top: 0.75rem;
+    font-family: 'Libre Baskerville', serif;
+  }
+  .summary-insight.warn { border-left-color: var(--warn); }
+  .summary-insight.crit { border-left-color: var(--danger); }
+  .summary-insight.good { border-left-color: var(--good); }
+
+  .summary-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 1.25rem; padding-top: 0.75rem;
+    border-top: 3px double var(--border2);
+  }
+  .summary-budget {
+    font-family: 'Special Elite', cursive; font-size: 0.7rem; color: var(--accent2);
+    letter-spacing: 0.05em;
+  }
+  .summary-continue {
+    background: transparent; color: var(--accent);
+    border: 2px solid var(--accent); padding: 0.6rem 1.5rem;
+    font-family: 'Special Elite', cursive; font-size: 0.72rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .summary-continue:hover { background: var(--accent); color: var(--ink); }
+
+  /* ADVISORS */
+  .advisor-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.65rem; margin-bottom: 0.45rem; transition: all 0.2s;
+  }
+  .advisor-card.advisor-police   { border-left-color: var(--danger); }
+  .advisor-card.advisor-social   { border-left-color: var(--accent2); }
+  .advisor-card.advisor-community { border-left-color: var(--good); }
+  .advisor-name {
+    font-family: 'Special Elite', cursive; font-size: 0.58rem;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.3rem;
+  }
+  .advisor-police .advisor-name   { color: var(--danger); }
+  .advisor-social .advisor-name   { color: var(--accent2); }
+  .advisor-community .advisor-name { color: var(--good); }
+  .advisor-text {
+    font-size: 0.74rem; color: var(--text-dim);
+    line-height: 1.55; font-family: 'Libre Baskerville', serif;
+  }
+
+  /* ADVANCE BUTTON */
+  .advance-btn {
+    margin: 1rem 1.1rem; width: calc(100% - 2.2rem);
+    background: transparent; color: var(--accent);
+    border: 2px solid var(--accent); padding: 0.8rem;
+    font-family: 'Special Elite', cursive; font-size: 0.72rem;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .advance-btn:hover { background: var(--accent); color: var(--ink); }
+  .advance-btn:disabled { border-color: var(--border); color: var(--text-muted); cursor: not-allowed; }
+
+  /* CRIME BARS */
+  .crime-bar-wrap { margin-bottom: 0.45rem; }
+  .crime-bar-label {
+    display: flex; justify-content: space-between;
+    font-family: 'Special Elite', cursive; font-size: 0.52rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 0.2rem;
+  }
+  .crime-bar-track { height: 5px; background: var(--surface2); border: 1px solid var(--border); overflow: hidden; }
+  .crime-bar-fill  { height: 100%; transition: width 0.6s, background 0.6s; }
+  .fill-cbd  { background: var(--zone1); }
+  .fill-trans{ background: var(--zone2); }
+  .fill-work { background: var(--zone3); }
+  .fill-res  { background: var(--zone4); }
+  .fill-comm { background: var(--zone5); }
+
+  /* ZONE DETAIL */
+  .zone-detail {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-top: 2px solid var(--border2);
+    padding: 0.65rem; margin-bottom: 0.65rem;
+  }
+  .zone-detail .zone-name {
+    font-family: 'IM Fell English', serif; font-size: 1rem;
+    margin-bottom: 0.2rem; font-weight: 400;
+  }
+  .zone-detail .zone-desc {
+    font-size: 0.7rem; color: var(--text-dim);
+    line-height: 1.55; font-style: italic;
+    font-family: 'Libre Baskerville', serif;
+  }
+  .pop-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.4rem; }
+  .pop-label {
+    font-family: 'Special Elite', cursive; font-size: 0.52rem;
+    text-transform: uppercase; color: var(--text-muted);
+    letter-spacing: 0.1em; width: 80px; flex-shrink: 0;
+  }
+
+  /* GAME LOG */
+  .log-entry {
+    font-family: 'Courier Prime', monospace; font-size: 0.6rem;
+    color: var(--text-muted); padding: 0.25rem 0;
+    border-bottom: 1px solid var(--border); line-height: 1.45;
+  }
+  .log-entry .log-year { color: var(--accent); margin-right: 0.5rem; font-weight: 700; }
+  .log-entry.important { color: var(--text-dim); }
+  .log-entry.critical  { color: var(--warn); }
+  .log-entry.discovery { color: var(--danger); }
+
+  /* EVENT OVERLAY */
+  #event-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(10,8,4,0.9); z-index: 50;
+    align-items: center; justify-content: center; padding: 1rem;
+  }
+  #event-overlay.show { display: flex; }
+  .event-card {
+    background: var(--surface); max-width: 540px; width: 100%; padding: 2rem;
+    border: 1px solid var(--border2);
+    border-top: 4px double var(--border2);
+    border-bottom: 4px double var(--border2);
+  }
+  .event-card .event-year {
+    font-family: 'Special Elite', cursive; font-size: 0.62rem;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 0.5rem;
+  }
+  .event-card h3 {
+    font-family: 'IM Fell English', serif; font-size: 1.5rem;
+    color: var(--accent); margin-bottom: 0.85rem;
+    line-height: 1.2; font-weight: 400;
+  }
+  .event-card p {
+    font-size: 0.88rem; line-height: 1.75; color: var(--text-dim);
+    margin-bottom: 0.85rem; font-family: 'Libre Baskerville', serif;
+  }
+  .event-card .theory-note {
+    background: var(--surface2); border-left: 3px solid var(--accent);
+    padding: 0.65rem 1rem; font-size: 0.78rem; color: var(--text-dim);
+    line-height: 1.65; margin-bottom: 1.1rem;
+    font-style: italic; font-family: 'Libre Baskerville', serif;
+  }
+  .event-close {
+    background: transparent; color: var(--accent);
+    border: 2px solid var(--accent); padding: 0.65rem 1.4rem;
+    font-family: 'Special Elite', cursive; font-size: 0.72rem;
+    letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .event-close:hover { background: var(--accent); color: var(--ink); }
+
+  /* END SCREEN */
+  #end-screen {
+    display: none; position: fixed; inset: 0;
+    background: var(--bg); z-index: 100; overflow-y: auto; padding: 2.5rem;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(74,63,40,0.06) 28px, rgba(74,63,40,0.06) 29px);
+  }
+  #end-screen h2 {
+    font-family: 'IM Fell English', serif;
+    font-size: clamp(2rem, 6vw, 3.5rem); color: var(--accent);
+    margin-bottom: 0.5rem; font-weight: 400;
+  }
+  .finding-item {
+    border-left: 2px solid var(--border2); padding-left: 1rem; margin-bottom: 1.5rem;
+  }
+  .finding-item h4 {
+    font-family: 'Special Elite', cursive; font-size: 0.62rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 0.35rem;
+  }
+  .finding-item p {
+    font-size: 0.85rem; color: var(--text-dim);
+    line-height: 1.7; font-family: 'Libre Baskerville', serif;
+  }
+  .play-again {
+    background: transparent; color: var(--accent);
+    border: 2px solid var(--accent); padding: 0.8rem 2rem;
+    font-family: 'Special Elite', cursive; font-size: 0.72rem;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s; margin-top: 1rem;
+  }
+  .play-again:hover { background: var(--accent); color: var(--ink); }
+
+  /* ANIMATIONS */
+  @keyframes advisorFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .advisor-card.fresh { animation: advisorFadeIn 0.3s ease forwards; }
+
+  .crime-cause-tag {
+    position: absolute;
+    font-family: 'Special Elite', cursive;
+    font-size: 0.52rem; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0.2rem 0.45rem; border: 1px solid currentColor;
+    pointer-events: none; opacity: 0; transition: opacity 0.2s; white-space: nowrap;
+    background: rgba(28,23,16,0.9);
+  }
+  .zone-ring:hover .crime-cause-tag { opacity: 1; }
+
+  @media (max-width: 768px) { .sidebar { border-left: none; border-top: 1px solid var(--border); } }
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="intro">
+  <div class="masthead-rule"></div>
+  <div class="subtitle">Chicago School &middot; Urban Theory &middot; 1920&ndash;1960</div>
+  <h1>ZONE</h1>
+  <div class="dateline">A City Administration Simulation</div>
+  <p>You are the city administrator of a growing American metropolis. Allocate municipal funds, manage your districts &mdash; and watch who arrives, and where they are permitted to settle.</p>
+  <button class="btn-primary" onclick="startGame()">Open the Files &mdash; 1920</button>
+</div>
+
+<!-- MAIN GAME -->
+<div id="game">
+  <div class="game-header">
+    <h2>ZONE</h2>
+    <div class="year-display" id="year-display">1920</div>
+    <div class="migration-ticker" id="migration-ticker">New Arrivals: <span id="arrival-count">0</span> this decade</div>
+    <div class="budget-display">Budget: $<span id="budget-display">120</span>k &nbsp;<span id="income-projected" style="font-size:0.7rem;opacity:0.7"></span></div>
+    <div style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:var(--text-muted)">Round <span id="round-display">1</span>/8</div>
+  </div>
+
+  <div class="game-body">
+    <!-- MAP -->
+    <div class="map-area">
+      <div class="map-title">Burgess Concentric Zone Model &mdash; Select a district to administer</div>
+
+      <div class="city-map-wrap">
+        <div class="city-map" id="cityMap">
+          <div class="zone-ring" id="z5" onclick="selectZone(5)">
+            <div class="zone-label" style="position:absolute;top:3%;color:#a87eb870;font-size:0.5rem">V · Commuter</div>
+          </div>
+          <div class="zone-ring" id="z4" onclick="selectZone(4)">
+            <div class="zone-label" style="position:absolute;top:13%;color:#6ea8c870;font-size:0.5rem">IV · Residential</div>
+          </div>
+          <div class="zone-ring" id="z3" onclick="selectZone(3)">
+            <div class="zone-label" style="position:absolute;top:25%;color:#7eb8a470;font-size:0.5rem">III · Working Class</div>
+          </div>
+          <div class="zone-ring" id="z2" onclick="selectZone(2)">
+            <div class="zone-label" style="position:absolute;top:37%;color:#d4614a80;font-size:0.5rem">II · Transition</div>
+          </div>
+          <div class="zone-ring" id="z1" onclick="selectZone(1)">
+            <div class="zone-label" style="color:#e8c87a;font-size:0.55rem">CBD</div>
+          </div>
+        </div>
+        <canvas id="migrationCanvas"></canvas>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend" id="migrant-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#e8b86d"></div>European immigrant</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d4a0d0"></div>Southern Black migrant</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#7ab8d4"></div>Rural white worker</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#80c880"></div>Industrial labourer</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d47a5a;width:7px;height:7px"></div>Displaced resident</div>
+      </div>
+
+      <!-- Crime heat legend -->
+      <div class="legend" style="border-top:1px solid var(--border);padding-top:0.5rem;margin-top:-0.25rem">
+        <div style="width:100%;font-family:'Courier Prime',monospace;font-size:0.55rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem">Crime heat — cause</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d4614a"></div>Structural</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c8784a"></div>Redlining / displacement</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d4884a"></div>Overcrowding</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#b8c8d8"></div>Policing feedback</div>
+      </div>
+
+      <!-- Crime bars -->
+      <div style="width:min(460px,88vw)">
+        <div style="font-family:'Courier Prime',monospace;font-size:0.55rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.4rem">Crime Index by Zone</div>
+        <div id="crime-bars"></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="city-stats">
+        <div class="stat-card">
+          <div class="val" id="stat-crime" style="color:var(--danger)">0%</div>
+          <div class="lbl">City Crime</div>
+        </div>
+        <div class="stat-card">
+          <div class="val" id="stat-stability" style="color:var(--good)">72</div>
+          <div class="lbl">Stability</div>
+        </div>
+        <div class="stat-card">
+          <div class="val" id="stat-live" style="color:var(--good)">—</div>
+          <div class="lbl">Liveability</div>
+        </div>
+        <div class="stat-card">
+          <div class="val" id="stat-pop" style="color:var(--accent2)">0k</div>
+          <div class="lbl">Population</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <h3>District Report</h3>
+        <div id="zone-detail-panel">
+          <div style="font-size:0.78rem;color:var(--text-muted);font-style:italic">Click a zone on the map to manage it</div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <h3>Counsel &amp; Correspondence</h3>
+        <div id="advisor-panel"></div>
+      </div>
+      <div class="sidebar-section" style="flex:1">
+        <h3>Municipal Record</h3>
+        <div id="game-log" style="max-height:180px;overflow-y:auto"></div>
+      </div>
+      <button class="advance-btn" id="advance-btn" onclick="advanceYear()">Advance the Decade &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROUND SUMMARY OVERLAY -->
+<div id="summary-overlay">
+  <div class="summary-card">
+    <div class="summary-header">
+      <h3 id="summary-title">Decade Report</h3>
+      <div class="summary-year" id="summary-year-label"></div>
+    </div>
+    <div class="summary-zone-row header">
+      <span>Zone</span><span>Crime</span><span>Stability</span><span>Integration</span>
+    </div>
+    <div id="summary-zones"></div>
+    <div id="summary-insights"></div>
+    <div class="summary-footer">
+      <div class="summary-budget" id="summary-budget"></div>
+      <button class="summary-continue" onclick="closeSummary()">Allocate Resources →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT OVERLAY -->
+<div id="event-overlay">
+  <div class="event-card">
+    <div class="event-year" id="event-year"></div>
+    <h3 id="event-title"></h3>
+    <p id="event-body"></p>
+    <div class="theory-note" id="event-theory"></div>
+    <button class="event-close" onclick="closeEvent()">Continue</button>
+  </div>
+</div>
+
+<!-- END SCREEN -->
+<div id="end-screen">
+  <div style="max-width:600px">
+    <div style="font-family:'Courier Prime',monospace;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem">Game Complete — 1960</div>
+    <h2 id="end-title"></h2>
+    <p id="end-summary" style="color:var(--text-dim);font-size:0.88rem;line-height:1.7;margin-bottom:2rem"></p>
+    <div id="end-findings"></div>
+    <button class="play-again" onclick="location.reload()">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ===================================================
+// MIGRANT TYPES
+// Each type has: visual properties, destination zone bias, and effects on crime/stability
+// ===================================================
+const MIGRANT_TYPES = {
+  european: {
+    label: "European immigrant",
+    color: "#e8b86d",
+    shape: "circle",
+    radius: 4,
+    // Historically: arrived in waves 1900–1930, concentrated in Zone II/III
+    zoneBias: { 1: 0.05, 2: 0.45, 3: 0.35, 4: 0.1, 5: 0.05 },
+    crimeEffect: { 2: +2, 3: +1 },       // initial overcrowding effect
+    stabilityEffect: { 2: -2, 3: +1 },   // tight community, but transition zone stress
+    lore: "Southern & Eastern European immigrants, 1900–1930"
+  },
+  blackMigrant: {
+    label: "Southern Black migrant",
+    color: "#d4a0d0",
+    shape: "circle",
+    radius: 4,
+    // Forced into Zone II by restrictive covenants — bias changes post round 3 event
+    zoneBias: { 1: 0.02, 2: 0.70, 3: 0.20, 4: 0.04, 5: 0.04 },
+    crimeEffect: { 2: +1 },              // due to overcrowding, not pathology
+    stabilityEffect: { 2: -3, 3: +2 },
+    lore: "Great Migration from the South — blocked from outer zones by restrictive covenants"
+  },
+  ruralWhite: {
+    label: "Rural white worker",
+    color: "#7ab8d4",
+    shape: "circle",
+    radius: 3.5,
+    zoneBias: { 1: 0.05, 2: 0.20, 3: 0.40, 4: 0.25, 5: 0.10 },
+    crimeEffect: { 2: +1, 3: 0 },
+    stabilityEffect: { 3: +2, 4: +1 },
+    lore: "Rural-to-urban migration driven by mechanised agriculture"
+  },
+  industrial: {
+    label: "Industrial labourer",
+    color: "#80c880",
+    shape: "circle",
+    radius: 3.5,
+    zoneBias: { 1: 0.10, 2: 0.30, 3: 0.40, 4: 0.15, 5: 0.05 },
+    crimeEffect: { 2: 0, 3: -1 },
+    stabilityEffect: { 2: +1, 3: +3 },
+    lore: "Stable industrial employment — key stabilising force in working-class zones"
+  },
+  displaced: {
+    label: "Displaced resident",
+    color: "#d47a5a",
+    shape: "circle",
+    radius: 3,
+    zoneBias: { 1: 0.02, 2: 0.25, 3: 0.50, 4: 0.18, 5: 0.05 },
+    crimeEffect: { 2: +3, 3: +4 },       // concentrated disadvantage follows
+    stabilityEffect: { 2: -4, 3: -5 },
+    lore: "Families displaced by slum clearance — disadvantage relocated, not resolved"
+  }
+};
+
+// ===================================================
+// ZONE DEFINITIONS
+// ===================================================
+const ZONES = {
+  1: { name: "Zone I: CBD", shortName: "CBD", color: "#e8c87a", desc: "The Central Business District — commercial heart, high footfall, low residential population.", baseStability: 60, basePop: 5 },
+  2: { name: "Zone II: Transition", shortName: "Trans.", color: "#d4614a", desc: "The zone in transition — incoming industry displaces residents. High mobility, mixed use, social disorganisation.", baseStability: 25, basePop: 20 },
+  3: { name: "Zone III: Working Class", shortName: "Work.", color: "#7eb8a4", desc: "Homes of workers who escaped the transition zone. Dense but stable.", baseStability: 55, basePop: 35 },
+  4: { name: "Zone IV: Residential", shortName: "Res.", color: "#6ea8c8", desc: "Better residences — middle class families, apartment buildings, single family homes.", baseStability: 75, basePop: 25 },
+  5: { name: "Zone V: Commuter", shortName: "Comm.", color: "#a87eb8", desc: "Suburban settlements beyond the city — 30–60 minutes from the CBD.", baseStability: 80, basePop: 15 }
+};
+
+// Zone ring radii as fraction of canvas size (outer edge of each ring)
+const ZONE_RADII = { 1: 0.52*0.26, 2: 0.52*0.40, 3: 0.52*0.56, 4: 0.52*0.74, 5: 0.52 };
+// Approx midpoint radii for dot landing positions
+const ZONE_MID_RADII = { 1: 0.06, 2: 0.16, 3: 0.26, 4: 0.36, 5: 0.46 };
+
+// ===================================================
+// GAME STATE
+// ===================================================
+let state = {
+  year: 1920,
+  round: 1,
+  budget: 120,
+  selectedZone: null,
+  zones: {},
+  log: [],
+  discoveredProblems: [],
+  arrivalCount: 0,
+  roundChanges: {},
+  prevCrime: {},
+  lastIncome: null
+};
+
+function initZones() {
+  for (let z = 1; z <= 5; z++) {
+    state.zones[z] = {
+      police:   z === 2 ? 4 : 2,
+      social:   z <= 3 ? 3 : 2,
+      housing:  z >= 3 ? 4 : 2,
+      green:    z >= 4 ? 3 : 1,
+      population:  ZONES[z].basePop,
+      // Starting crime closer to structural resting — player starts from a reachable position
+      crime:    z === 2 ? 62 : { 1: 30, 3: 32, 4: 20, 5: 15 }[z],
+      stability:   ZONES[z].baseStability,
+      redlined:    false,
+      displaced:   0,
+      pendingCrimeMod: 0,
+      pendingStabMod:  0,
+      // Housing stock starts adequately provisioned — pressure comes from migration, not day 1
+      housingStock:  ZONES[z].basePop * 1.5,
+      // Social stock starts higher so early investment has visible effect
+      socialStock:   z <= 3 ? 14 : 10,
+      greenStock:    z >= 4 ? 10 : 5,
+      communityTrust: z === 2 ? 35 : 60,
+    };
+  }
+}
+
+// ===================================================
+// MIGRATION WAVE SCHEDULE
+// How many of each type arrive per round, and from which direction
+// Based loosely on real demographic data for US cities 1920-1960
+// ===================================================
+const MIGRATION_WAVES = {
+  1: { european: 45, ruralWhite: 28, industrial: 32, blackMigrant: 22,  displaced: 0  },  // 1920 — post WWI urban boom
+  2: { european: 38, ruralWhite: 35, industrial: 40, blackMigrant: 38,  displaced: 0  },  // 1925 — prosperity wave
+  3: { european: 18, ruralWhite: 25, industrial: 22, blackMigrant: 80,  displaced: 0  },  // 1930 — Great Migration peaks, Depression arrivals
+  4: { european: 12, ruralWhite: 20, industrial: 18, blackMigrant: 60,  displaced: 15 },  // 1935 — Depression-era displacement begins
+  5: { european: 8,  ruralWhite: 32, industrial: 45, blackMigrant: 65,  displaced: 35 },  // 1940 — WWII industrial migration
+  6: { european: 6,  ruralWhite: 25, industrial: 38, blackMigrant: 72,  displaced: 60 },  // 1945 — urban renewal displacement accelerates
+  7: { european: 5,  ruralWhite: 18, industrial: 28, blackMigrant: 55,  displaced: 75 },  // 1950 — mass clearance, white flight begins
+  8: { european: 4,  ruralWhite: 14, industrial: 22, blackMigrant: 48,  displaced: 90 },  // 1955 — peak displacement, suburbanisation
+};
+
+// Entry angle ranges per migrant type (radians from top, clockwise)
+// These reflect historical geography: Black migrants from the South (bottom),
+// Europeans from the East (right), rural workers from all directions
+const ENTRY_ANGLES = {
+  european:    { min: -0.5, max: 0.5 },         // East (right side)
+  blackMigrant:{ min: Math.PI * 0.6, max: Math.PI * 1.4 }, // South (bottom)
+  ruralWhite:  { min: -Math.PI, max: Math.PI },   // All directions
+  industrial:  { min: Math.PI * 0.8, max: Math.PI * 1.6 }, // South-west (rail lines)
+  displaced:   { min: -0.3, max: 0.3 }           // From within — inner zones pushing outward
+};
+
+// ===================================================
+// CANVAS ANIMATION SYSTEM
+// ===================================================
+let canvas, ctx, animFrame;
+let migrants = [];       // active migrating dots
+let settlers = [];       // dots that have landed — persistent residents
+let flashEffects = [];   // landing flash rings
+
+class Migrant {
+  constructor(type, targetZone) {
+    this.type = type;
+    this.def = MIGRANT_TYPES[type];
+    this.targetZone = targetZone;
+    this.landed = false;
+    this.opacity = 0;
+    this.age = 0;
+
+    const size = canvas.width;
+    const cx = size / 2, cy = size / 2;
+
+    // Entry point: from outside canvas, angle biased by type
+    const angleRange = ENTRY_ANGLES[type];
+    const angle = angleRange.min + Math.random() * (angleRange.max - angleRange.min);
+    const entryDist = size * 0.58;
+    this.x = cx + Math.cos(angle) * entryDist;
+    this.y = cy + Math.sin(angle) * entryDist;
+    this.startX = this.x;
+    this.startY = this.y;
+
+    // Target: random point within the target zone ring
+    const midR = ZONE_MID_RADII[targetZone] * size;
+    const spread = size * 0.045;
+    const destAngle = Math.random() * Math.PI * 2;
+    const destR = midR + (Math.random() - 0.5) * spread * 2;
+    this.destX = cx + Math.cos(destAngle) * destR;
+    this.destY = cy + Math.sin(destAngle) * destR;
+
+    // Speed: varies slightly by type
+    const baseDuration = type === 'displaced' ? 80 : 120 + Math.random() * 60;
+    this.duration = baseDuration;
+    this.progress = 0;
+
+    // Trail
+    this.trail = [];
+  }
+
+  update() {
+    this.age++;
+    this.opacity = Math.min(1, this.age / 15);
+
+    if (!this.landed) {
+      this.progress += 1 / this.duration;
+      if (this.progress >= 1) {
+        this.progress = 1;
+        this.landed = true;
+        this.landTime = this.age;
+        // Trigger flash
+        flashEffects.push(new FlashRing(this.destX, this.destY, this.def.color));
+        // Apply effects to game state
+        applyMigrantEffect(this.type, this.targetZone);
+        state.arrivalCount++;
+        document.getElementById('arrival-count').textContent = state.arrivalCount;
+        // Become a settler
+        settlers.push({ x: this.destX, y: this.destY, color: this.def.color, zone: this.targetZone, opacity: 0.7, r: this.def.radius * 0.8 });
+      }
+
+      // Ease in-out cubic
+      const t = easeInOutCubic(this.progress);
+      this.x = this.startX + (this.destX - this.startX) * t;
+      this.y = this.startY + (this.destY - this.startY) * t;
+
+      // Record trail
+      this.trail.push({ x: this.x, y: this.y });
+      if (this.trail.length > 12) this.trail.shift();
+    }
+  }
+
+  draw() {
+    if (this.landed) return;
+
+    // Draw trail
+    if (this.trail.length > 1) {
+      for (let i = 1; i < this.trail.length; i++) {
+        const alpha = (i / this.trail.length) * 0.25 * this.opacity;
+        ctx.beginPath();
+        ctx.moveTo(this.trail[i - 1].x, this.trail[i - 1].y);
+        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+        ctx.strokeStyle = hexToRgba(this.def.color, alpha);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // Draw dot
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.def.radius, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(this.def.color, this.opacity);
+    ctx.fill();
+
+    // Glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.def.radius * 2, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(this.def.color, this.opacity * 0.15);
+    ctx.fill();
+  }
+}
+
+class FlashRing {
+  constructor(x, y, color) {
+    this.x = x; this.y = y; this.color = color;
+    this.age = 0; this.maxAge = 40;
+    this.maxRadius = 20;
+  }
+  update() { this.age++; }
+  draw() {
+    const t = this.age / this.maxAge;
+    const r = t * this.maxRadius;
+    const alpha = (1 - t) * 0.8;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = hexToRgba(this.color, alpha);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    if (this.age < 20) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = hexToRgba(this.color, alpha * 0.5);
+      ctx.fill();
+    }
+  }
+  isDone() { return this.age >= this.maxAge; }
+}
+
+// ===================================================
+// CRIME HEAT SYSTEM
+// Three visual layers per zone when crime crosses thresholds:
+//   1. Zone pulse ring — slow breathing glow on the ring boundary
+//   2. Incident sparks — brief sharp flashes scattered within the zone
+//   3. Cause indicator — colour-coded by what's driving crime
+//      Orange-red  = overcrowding / displacement pressure
+//      Cold white  = policing feedback (recorded crime artefact)
+//      Deep amber  = structural / redlining driven
+// ===================================================
+
+// Persistent per-zone pulse state
+const zonePulse = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; // phase offset per zone
+let pulseTimer = 0;
+
+// Incident sparks — short-lived bright points within a zone
+class CrimeIncident {
+  constructor(x, y, color, size) {
+    this.x = x; this.y = y; this.color = color;
+    this.size = size || 3;
+    this.age = 0;
+    this.maxAge = 35 + Math.random() * 25;
+    // Small random drift
+    this.vx = (Math.random() - 0.5) * 0.4;
+    this.vy = (Math.random() - 0.5) * 0.4;
+  }
+  update() {
+    this.age++;
+    this.x += this.vx; this.y += this.vy;
+  }
+  draw() {
+    const t = this.age / this.maxAge;
+    // Sharp rise, slow fade
+    const alpha = t < 0.2 ? t / 0.2 : (1 - t) * 0.85;
+    // Core dot
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(this.color, alpha);
+    ctx.fill();
+    // Halo
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(this.color, alpha * 0.12);
+    ctx.fill();
+  }
+  isDone() { return this.age >= this.maxAge; }
+}
+
+let crimeIncidents = [];
+
+// Determine crime heat colour and intensity for a zone
+function getCrimeHeatInfo(zone) {
+  const zd = state.zones[zone];
+  const crime = zd.crime;
+
+  // Only show heat for crime meaningfully above structural resting level
+  // Structural resting: Z1=28, Z2=58, Z3=32, Z4=28, Z5=22
+  // We show heat when crime is 10+ above resting — i.e. something is actually wrong
+  const structuralResting = { 1: 28, 2: 58, 3: 32, 4: 28, 5: 22 }[zone];
+  const excessCrime = crime - structuralResting;
+  if (excessCrime < 10) return null; // within normal range for this zone — no heat
+
+  // Determine dominant cause using actual housing stock
+  const overloaded = zd.population > zd.housingStock;
+  let cause = 'structural';
+  if (zd.redlined || zd.displaced > 1)          cause = 'redlining';
+  else if (zd.police >= 6 && crime > 50)         cause = 'policing';
+  else if (overloaded && zd.population - zd.housingStock > 3) cause = 'overcrowding';
+
+  const colors = {
+    structural:   '#d4614a',  // warm red — something deeper going wrong
+    redlining:    '#c8784a',  // amber-orange — exclusion and displacement
+    policing:     '#b8c8d8',  // cold blue-white — recorded crime artefact
+    overcrowding: '#d4884a',  // orange — population pressure
+  };
+
+  // Intensity 0–1 mapped from excess crime 10–50+
+  const intensity = Math.min(1, excessCrime / 50);
+  return { color: colors[cause], intensity, cause };
+}
+
+// Draw zone heat pulse ring — drawn in animate() each frame
+function drawCrimeHeat(zone) {
+  const info = getCrimeHeatInfo(zone);
+  if (!info) return;
+
+  const size = canvas.width;
+  const cx = size / 2, cy = size / 2;
+
+  // Get the outer radius of this zone ring (as fraction of size/2)
+  // These match the CSS inset values: z1=48%, z2=36%, z3=24%, z4=12%, z5=0%
+  const outerFractions = { 1: 0.52, 2: 0.64, 3: 0.76, 4: 0.88, 5: 1.0 };
+  const innerFractions = { 1: 0.0,  2: 0.52, 3: 0.64, 4: 0.76, 5: 0.88 };
+  const outerR = outerFractions[zone] * (size / 2) * 0.98;
+  const innerR = innerFractions[zone] * (size / 2) * 0.98;
+  const midR   = (outerR + innerR) / 2;
+
+  pulseTimer++;
+
+  // Breathing pulse — sine wave, speed increases with intensity
+  const speed = 0.018 + info.intensity * 0.025;
+  const phase = pulseTimer * speed + zonePulse[zone];
+  const breathe = (Math.sin(phase) + 1) / 2; // 0–1
+
+  // Layer 1: broad zone fill glow — very subtle radial wash
+  const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+  const baseAlpha = info.intensity * 0.07 * (0.5 + breathe * 0.5);
+  grad.addColorStop(0,   hexToRgba(info.color, 0));
+  grad.addColorStop(0.4, hexToRgba(info.color, baseAlpha));
+  grad.addColorStop(1,   hexToRgba(info.color, 0));
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2, true);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Layer 2: pulsing ring stroke at the boundary
+  const ringAlpha = info.intensity * (0.3 + breathe * 0.45);
+  const ringWidth = 1 + info.intensity * 3 * breathe;
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.strokeStyle = hexToRgba(info.color, ringAlpha);
+  ctx.lineWidth = ringWidth;
+  ctx.stroke();
+
+  // High crime — second inner ring for dramatic doubling effect
+  if (info.intensity > 0.55) {
+    const inner2Alpha = info.intensity * (0.15 + breathe * 0.25);
+    ctx.beginPath();
+    ctx.arc(cx, cy, innerR + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = hexToRgba(info.color, inner2Alpha);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+// Spawn crime incidents for high-crime zones — called on an interval
+function spawnCrimeIncidents() {
+  const size = canvas.width;
+  const cx = size / 2, cy = size / 2;
+
+  for (let zone = 1; zone <= 5; zone++) {
+    const info = getCrimeHeatInfo(zone);
+    if (!info) continue;
+
+    // Spawn probability proportional to crime intensity
+    // ~1–4 incidents per second at max crime
+    if (Math.random() > info.intensity * 0.06) continue;
+
+    const outerFractions = { 1: 0.50, 2: 0.62, 3: 0.74, 4: 0.86, 5: 0.98 };
+    const innerFractions = { 1: 0.02, 2: 0.50, 3: 0.62, 4: 0.74, 5: 0.86 };
+    const outerR = outerFractions[zone] * (size / 2);
+    const innerR = innerFractions[zone] * (size / 2);
+
+    // Random point in the annular zone
+    const angle = Math.random() * Math.PI * 2;
+    const r = innerR + Math.random() * (outerR - innerR);
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+
+    const sparkSize = 1.5 + info.intensity * 2.5;
+    crimeIncidents.push(new CrimeIncident(x, y, info.color, sparkSize));
+  }
+}
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function initCanvas() {
+  canvas = document.getElementById('migrationCanvas');
+  const wrap = canvas.parentElement;
+  const size = wrap.offsetWidth;
+  canvas.width = size;
+  canvas.height = size;
+  ctx = canvas.getContext('2d');
+}
+
+function resizeCanvas() {
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const size = wrap.offsetWidth;
+  canvas.width = size;
+  canvas.height = size;
+  // Re-place settlers proportionally
+  settlers = settlers.map(s => {
+    const midR = ZONE_MID_RADII[s.zone] * size;
+    return s; // positions are already stored in absolute coords — for simplicity keep them
+  });
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+let animRunning = false;
+function startAnimation() {
+  if (animRunning) return;
+  animRunning = true;
+  animate();
+}
+
+function animate() {
+  if (!animRunning) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Layer 0: Crime heat rings (drawn first, under everything)
+  for (let z = 1; z <= 5; z++) drawCrimeHeat(z);
+
+  // Spawn and draw crime incident sparks
+  spawnCrimeIncidents();
+  crimeIncidents = crimeIncidents.filter(i => !i.isDone());
+  for (const i of crimeIncidents) { i.update(); i.draw(); }
+
+  // Draw settled dots (persistent population)
+  for (const s of settlers) {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(s.color, s.opacity);
+    ctx.fill();
+  }
+
+  // Update and draw migrants in flight
+  migrants = migrants.filter(m => !m.landed);
+  for (const m of migrants) { m.update(); m.draw(); }
+
+  // Flash effects
+  for (const f of flashEffects) { f.update(); f.draw(); }
+  flashEffects = flashEffects.filter(f => !f.isDone());
+
+  animFrame = requestAnimationFrame(animate);
+}
+
+// Spawn migrants for a given round
+let spawnQueue = [];
+let spawnInterval = null;
+
+function spawnWave(round) {
+  const wave = MIGRATION_WAVES[round] || {};
+  spawnQueue = [];
+
+  for (const [type, count] of Object.entries(wave)) {
+    for (let i = 0; i < count; i++) {
+      // Pick destination zone based on bias
+      const zone = pickZoneByBias(MIGRANT_TYPES[type].zoneBias, round, type);
+      // Stagger spawn times across ~8 seconds
+      const delay = Math.random() * 8000;
+      spawnQueue.push({ type, zone, delay, spawned: false });
+    }
+  }
+
+  spawnQueue.sort((a, b) => a.delay - b.delay);
+  const startTime = performance.now();
+
+  if (spawnInterval) clearInterval(spawnInterval);
+  spawnInterval = setInterval(() => {
+    const now = performance.now() - startTime;
+    for (const item of spawnQueue) {
+      if (!item.spawned && now >= item.delay) {
+        migrants.push(new Migrant(item.type, item.zone));
+        item.spawned = true;
+      }
+    }
+    if (spawnQueue.every(i => i.spawned)) clearInterval(spawnInterval);
+  }, 50);
+}
+
+function pickZoneByBias(bias, round, type) {
+  // After round 3: Black migrants blocked from zones 4 and 5 by restrictive covenants
+  let adjustedBias = { ...bias };
+  if (type === 'blackMigrant' && round >= 3) {
+    adjustedBias[4] = 0.01;
+    adjustedBias[5] = 0.01;
+    const total = adjustedBias[2] + 0.5 + adjustedBias[3] + 0.3;
+    adjustedBias[2] = 0.65; adjustedBias[3] = 0.30;
+  }
+  const roll = Math.random();
+  let cumulative = 0;
+  for (const [z, prob] of Object.entries(adjustedBias)) {
+    cumulative += prob;
+    if (roll < cumulative) return parseInt(z);
+  }
+  return 2;
+}
+
+function applyMigrantEffect(type, zone) {
+  const def = MIGRANT_TYPES[type];
+  const zd = state.zones[zone];
+  if (!zd) return;
+  const crimeD = (def.crimeEffect[zone] || 0) * 0.15;
+  const stabD = (def.stabilityEffect[zone] || 0) * 0.15;
+  zd.crime = Math.max(5, Math.min(95, zd.crime + crimeD));
+  zd.stability = Math.max(5, Math.min(100, zd.stability + stabD));
+  zd.population = Math.min(99, zd.population + 0.05);
+}
+
+// ===================================================
+// EVENTS
+// ===================================================
+const EVENTS = [
+  {
+    round: 2,
+    title: "The Transition Zone Resists Reform",
+    body: "Despite your investment in Zone II, crime figures remain stubbornly high. New industries have moved in, displacing families who had just established roots.",
+    theory: "Shaw & McKay (1942) noted that crime rates in transitional zones remained persistently high regardless of which ethnic or social group inhabited them — suggesting place, not people, was the problem.",
+    type: "discovery",
+    effect: () => { state.zones[2].crime = Math.max(state.zones[2].crime, 60); }
+  },
+  {
+    round: 3,
+    title: "The Great Migration — and the Walls That Greet It",
+    body: "Tens of thousands of Black Americans are arriving from the South seeking industrial work. But housing deeds across Zones IV and V contain 'restrictive covenants' — residents cannot legally sell to Black families. Watch where the dots land.",
+    theory: "The Chicago School described urban ecology in race-neutral terms — but this neutrality masked how racial segregation was being actively enforced. The dot patterns you're seeing are not natural; they are legally constructed.",
+    type: "crisis",
+    effect: () => {
+      state.zones[2].population += 8;
+      state.zones[4].redlined = true;
+      state.zones[5].redlined = true;
+      state.discoveredProblems.push("racial_exclusion");
+      state.log.unshift({ year: state.year, text: "Restrictive covenants active in Zones IV & V.", type: "discovery" });
+    }
+  },
+  {
+    round: 4,
+    title: "The Policing Feedback Loop",
+    body: "Heavy policing in Zone II has reduced crime statistics — but residents report harassment. Arrests are up sharply, though convictions remain low. The crime map is shifting to reflect where police look.",
+    theory: "Critical criminologists observed that police presence in 'high crime' areas generates more recorded crime — a self-fulfilling prophecy. The map of crime reflects where police patrol, not simply where harm occurs.",
+    type: "critical",
+    effect: () => {
+      state.discoveredProblems.push("policing_bias");
+      if (state.zones[2].police >= 5) { state.zones[2].crime -= 5; state.zones[2].stability -= 10; }
+    }
+  },
+  {
+    round: 5,
+    title: "Zone II: No Matter What You Do",
+    body: "A researcher presents 30 years of data. Zone II crime has remained high under every policy — heavy policing, social investment, housing clearance. The zone itself seems to produce instability.",
+    theory: "This was Park and Burgess's key ecological insight — and key blind spot. They identified structural forces correctly, but framed them as natural and inevitable, ignoring the political choices that created and maintained them.",
+    type: "discovery",
+    effect: () => {
+      state.zones[2].crime = Math.max(state.zones[2].crime, 55);
+      state.discoveredProblems.push("structural_inevitability");
+    }
+  },
+  {
+    round: 6,
+    title: "Urban Renewal — or Urban Removal?",
+    body: "Planners propose clearing 'slum' areas in Zones II and III for a new highway. 12,000 families — mostly minority communities — will be displaced. Property values nearby are projected to rise. Watch the displaced dots flood outward.",
+    theory: "Mid-century 'slum clearance' programmes, often justified by social disorganisation theory, disproportionately displaced Black and working-class communities. James Baldwin called it 'Negro removal.'",
+    type: "crisis",
+    effect: () => {
+      state.zones[2].displaced += 6;
+      state.zones[3].displaced += 3;
+      state.zones[2].population -= 6;
+      state.discoveredProblems.push("displacement");
+      state.log.unshift({ year: state.year, text: "12,000 residents displaced by urban renewal.", type: "discovery" });
+    }
+  },
+  {
+    round: 7,
+    title: "Crime Migrates. It Does Not Disappear.",
+    body: "As Zone II is cleared, crime patterns shift outward into Zone III. Displaced families, lacking resources, carry concentrated disadvantage with them. The crime map has moved — it has not shrunk.",
+    theory: "Research consistently shows that displacement-led regeneration redistributes crime rather than reducing it. Social disorganisation travels with communities denied stable footing.",
+    type: "critical",
+    effect: () => {
+      state.zones[3].crime += 15;
+      state.zones[2].crime -= 10;
+      state.discoveredProblems.push("crime_migration");
+    }
+  }
+];
+
+let pendingEvent = null;
+
+// ===================================================
+// ADVISORS — fully dynamic, react to actual game state
+// ===================================================
+
+function getMorrisonMessage(z, zd) {
+  // Chief Morrison: pro-policing, reads crime numbers, but his advice
+  // becomes visibly self-serving and counterproductive at high police levels
+
+  const cityAvgCrime = Math.round(Object.values(state.zones).reduce((s, z) => s + z.crime, 0) / 5);
+
+  if (!z) {
+    if (cityAvgCrime > 65) return "Crime across the city is out of control. We need resources — every zone is understaffed.";
+    if (cityAvgCrime < 30) return "City's looking stable. My officers are doing their job. Keep the funding coming.";
+    return "Things are manageable but we can't let our guard down. Crime doesn't take a holiday.";
+  }
+
+  const pop = Math.round(zd.population);
+  const cap = Math.round(zd.housingStock);
+  const overloaded = pop > cap;
+
+  // Over-policed zones — Morrison doubles down, which is the point
+  if (zd.police >= 7) {
+    if (zd.crime > 55) return `Zone ${z} still showing high crime despite the patrols. We need more officers, not fewer — clearly what we have isn't enough yet.`;
+    if (zd.stability < 35) return `Zone ${z} is restless, but that's the nature of the area. More presence will settle it down eventually.`;
+    return `Zone ${z} is under control. My officers are the reason for that. Don't cut the budget now.`;
+  }
+
+  if (zd.crime > 70) return `Zone ${z} is a crisis. ${overloaded ? "All these new arrivals are destabilising the area — " : ""}I'm requesting immediate deployment of additional officers.`;
+  if (zd.crime > 50 && zd.police < 4) return `Zone ${z} is undermanned. Crime at ${Math.round(zd.crime)}% and we only have ${zd.police} units? That's why it's not improving.`;
+  if (zd.crime > 50 && zd.police >= 5) return `Zone ${z} still running high despite patrols. May need to look at other factors — but don't pull the officers yet.`;
+  if (zd.crime < 25 && zd.police >= 5) return `Zone ${z} is looking good. I'd attribute that to the strong patrol presence we've maintained.`;
+  if (zd.crime < 25) return `Zone ${z} is quiet. Low-risk area — we can probably redeploy some officers elsewhere.`;
+  if (overloaded) return `Zone ${z} is getting crowded. More people means more incidents — I'd recommend increasing patrol levels before it gets out of hand.`;
+  return `Zone ${z} is at ${Math.round(zd.crime)}% crime. Manageable, but watch the trends.`;
+}
+
+function getParkMessage(z, zd) {
+  // Dr. Park: the sociologist, sees structural causes, notices what Morrison misses,
+  // explicitly challenges over-policing when she sees it
+
+  const z2 = state.zones[2];
+  const z2overloaded = z2.population > Math.round(z2.housingStock);
+  const anyRedlined = state.zones[4].redlined || state.zones[5].redlined;
+
+  if (!z) {
+    if (anyRedlined && z2overloaded) return "The zone model is doing exactly what Park and Burgess described — but the pressure in Zone II isn't natural. It's being manufactured by exclusion from the outer zones. The ecology is political.";
+    if (z2.crime > 65) return "Zone II has been volatile since we founded the city. The question isn't who lives there — it's why the same zone stays unstable regardless of who does.";
+    if (state.round >= 4 && state.zones[3].crime > state.zones[2].crime - 10) return "Notice how Zone III is starting to mirror Zone II's patterns? That's not coincidence — it's pressure bleeding outward. The model predicts this.";
+    return "The migration patterns are the story. Watch where the dots land and ask yourself why those families didn't go to Zone IV instead.";
+  }
+
+  const pop = Math.round(zd.population);
+  const cap = Math.round(zd.housingStock);
+  const overloaded = pop > cap;
+
+  // React to over-policing specifically
+  if (zd.police >= 7 && zd.stability < 40) return `Zone ${z} has ${zd.police} police units and stability is still falling. That's the feedback loop in action — heavy policing is recording more crime AND damaging community trust. The numbers are telling you the wrong story.`;
+  if (zd.police >= 7 && zd.crime > 55) return `More officers haven't moved Zone ${z}'s crime. Shaw and McKay showed this 80 years ago — when a zone is structurally disorganised, policing treats the symptom, not the condition.`;
+
+  if (z === 2 && anyRedlined) return `Zone II is absorbing every family that gets blocked from Zones IV and V. The overcrowding you're seeing isn't random — it's what legal exclusion looks like from the inside.`;
+  if (z === 2 && overloaded) return `Zone II is at capacity — ${pop}k in a zone built for ${cap}k. That pressure will express itself as crime regardless of policing. Housing and social investment are the only real levers here.`;
+  if (z === 2) return `Zone II will always be the most volatile zone in the model — it's structurally positioned to be. The question is whether you make it habitable or simply containable.`;
+
+  if (overloaded && zd.social < 4) return `Zone ${z} is overcrowded and under-served. People without access to stable services become mobile — which is exactly what creates the 'social disorganisation' we're studying.`;
+  if (zd.social >= 6 && zd.crime < 35) return `Zone ${z} is responding well to social investment. This is what the model often misses — strong community institutions do what policing can't.`;
+  if (zd.displaced > 1) return `Zone ${z} is absorbing displaced families from elsewhere. They didn't choose instability — it followed them because they had no other options.`;
+  if (z >= 4 && zd.redlined) return `The outer zones are legally closed to many arriving families. That restriction concentrates disadvantage inward — and the crime map will reflect it within a decade.`;
+  if (z >= 4 && zd.crime < 20 && zd.stability > 70) return `Zone ${z} looks stable — but ask why. Its stability is partly produced by who's been kept out, not just by what's been invested in.`;
+  return `Zone ${z} — stability at ${Math.round(zd.stability)}, crime at ${Math.round(zd.crime)}. The balance here reflects your investment choices, but also the pressure coming from other zones.`;
+}
+
+function getRosaMessage(z, zd) {
+  // Rosa: community organiser, speaks for residents most affected by player decisions
+  // Her tone sharpens when she's being ignored, softens when investment is working
+
+  const anyRedlined = state.zones[4].redlined || state.zones[5].redlined;
+  const z2 = state.zones[2];
+  const cityPoliceAvg = Math.round(Object.values(state.zones).reduce((s, zd) => s + zd.police, 0) / 5);
+  const citySocialAvg = Math.round(Object.values(state.zones).reduce((s, zd) => s + zd.social, 0) / 5);
+
+  if (!z) {
+    if (anyRedlined && z2.population > 35) return "My community has been legally barred from half this city. Every family you see crowding into Zone II didn't choose that — they were pushed. The model calls it 'natural succession.' We call it a locked door.";
+    if (cityPoliceAvg > citySocialAvg + 2) return "Look at where the money's going. More on policing than on schools, clinics, community centres. You're treating us like a problem to manage, not people to invest in.";
+    if (citySocialAvg >= 5) return "The social investment is making a real difference — people have somewhere to turn. It's not just about crime numbers. It's about whether this feels like a place worth staying.";
+    if (state.round >= 6 && state.discoveredProblems.includes('displacement')) return "Those families didn't just disappear. They got pushed to Zone III, or beyond the city entirely. Urban renewal means something very specific to the people it happens to.";
+    return "The people arriving here are trying to build something. Whether they can depends on what you put in — or don't.";
+  }
+
+  const overloaded = Math.round(zd.population) > Math.round(zd.housingStock);
+
+  // Direct callouts based on player allocation in the selected zone
+  if (zd.police >= 7 && zd.social <= 3) return `You've got ${zd.police} police units in Zone ${z} and only ${zd.social} in social services. That tells residents exactly what you think they are. Crime doesn't go away — it just gets watched more closely.`;
+  if (zd.police >= 5 && zd.social < zd.police - 2) return `Zone ${z} has nearly twice as much policing as social services. My residents notice that. Trust is hard to rebuild once it's gone.`;
+  if (zd.social >= 6 && zd.crime < 40) return `Zone ${z} is working because people have access to what they need. That's not luck — that's your investment. Don't cut it.`;
+  if (zd.social >= 6 && zd.crime > 50) return `The social investment in Zone ${z} is helping, but the overcrowding is undoing it. We need housing too — you can't social-service your way out of a housing shortage.`;
+  if (overloaded && zd.housing < 3) return `Zone ${z} has ${Math.round(zd.population)}k people and not enough housing investment. Families are doubling up, sleeping in shifts. Crime follows desperation — and right now people are desperate.`;
+  if (zd.redlined) return `Zone ${z} is legally closed to families who look like mine. You can see it in the dot patterns — we're not choosing to avoid it. We're being kept out. That pressure has to go somewhere.`;
+  if (zd.displaced > 1) return `Zone ${z} took in families displaced by clearance elsewhere. They didn't ask to be moved. They lost their community, their networks, everything. And now they're blamed for the instability that followed them.`;
+  if (z >= 4 && zd.crime < 20) return `Zone ${z} is stable — and I'm glad. But I want you to notice who lives here, and who was blocked from ever getting here. Stability built on exclusion has a cost. It just gets paid somewhere else.`;
+  if (zd.green >= 5) return `The community spaces in Zone ${z} matter more than the numbers show. People have somewhere to gather, kids have somewhere to go. That's the social fabric the model talks about — you're actually building it.`;
+  return `Zone ${z}: ${Math.round(zd.stability)} stability, ${Math.round(zd.crime)}% crime. My people live here. The numbers are real lives.`;
+}
+
+function getAdvisorMessages() {
+  const z = state.selectedZone;
+  const zd = z ? state.zones[z] : null;
+  return [
+    { cls: "advisor-police", name: "Chief Morrison — Police Dept.", text: getMorrisonMessage(z, zd) },
+    { cls: "advisor-social", name: "Dr. Park — Sociologist",        text: getParkMessage(z, zd) },
+    { cls: "advisor-community", name: "Rosa — Residents' Assoc.",   text: getRosaMessage(z, zd) }
+  ];
+}
+
+// ===================================================
+// RENDERING
+// ===================================================
+function renderCrimeBars() {
+  const container = document.getElementById('crime-bars');
+  const fills = { 1: 'fill-cbd', 2: 'fill-trans', 3: 'fill-work', 4: 'fill-res', 5: 'fill-comm' };
+  container.innerHTML = '';
+  for (let z = 1; z <= 5; z++) {
+    const crime = state.zones[z].crime;
+    const prev  = state.prevCrime[z];
+    const diff  = prev !== undefined ? crime - prev : 0;
+    const trend = Math.abs(diff) < 2 ? '' : diff > 0
+      ? `<span style="color:var(--danger);font-size:0.6rem">↑${Math.round(diff)}</span>`
+      : `<span style="color:var(--good);font-size:0.6rem">↓${Math.abs(Math.round(diff))}</span>`;
+    container.innerHTML += `
+      <div class="crime-bar-wrap">
+        <div class="crime-bar-label">
+          <span>${ZONES[z].shortName}</span>
+          <span style="display:flex;align-items:center;gap:0.3rem">${trend}<span>${Math.round(crime)}%</span></span>
+        </div>
+        <div class="crime-bar-track"><div class="crime-bar-fill ${fills[z]}" style="width:${crime}%"></div></div>
+      </div>`;
+  }
+}
+
+// ===================================================
+// DYNAMIC INCOME SYSTEM
+// Base rate + per-zone bonuses from stability and integration.
+// Economic logic: stable, integrated zones attract business,
+// generate tax revenue, and cost less to service.
+// Zone weights reflect their economic contribution to city revenue.
+// ===================================================
+const INCOME_WEIGHTS = { 1: 0.25, 2: 0.10, 3: 0.25, 4: 0.25, 5: 0.15 };
+const INCOME_BASE    = 40;
+const INCOME_BONUS   = 80; // max additional from all zones combined
+
+function computeIncome() {
+  let bonus = 0;
+  const breakdown = {};
+  for (let z = 1; z <= 5; z++) {
+    const zd = state.zones[z];
+    const integ = getIntegrationScore(z);
+    // Stability contributes 40%, integration 60% — integration matters more
+    // because integrated zones have lower service costs and more economic activity
+    const score = (zd.stability / 100) * 0.4 + (integ / 100) * 0.6;
+    const zoneBonus = Math.round(score * INCOME_WEIGHTS[z] * INCOME_BONUS);
+    bonus += zoneBonus;
+    breakdown[z] = { score: Math.round(score * 100), bonus: zoneBonus };
+  }
+  const total = INCOME_BASE + Math.round(bonus);
+  return { base: INCOME_BASE, bonus: Math.round(bonus), total, breakdown };
+}
+
+function renderStats() {
+  const totalCrime = Math.round(Object.values(state.zones).reduce((s, z) => s + z.crime, 0) / 5);
+  const avgStab    = Math.round(Object.values(state.zones).reduce((s, z) => s + z.stability, 0) / 5);
+  const totalPop   = Math.round(Object.values(state.zones).reduce((s, z) => s + z.population, 0));
+
+  const liveability = Math.round(
+    (state.zones[3].stability * 0.3 + state.zones[4].stability * 0.35 + state.zones[5].stability * 0.2
+     + state.zones[2].stability * 0.1 + state.zones[1].stability * 0.05)
+    - (state.zones[3].crime * 0.25 + state.zones[2].crime * 0.15)
+  );
+  const liveClamp = Math.max(0, Math.min(100, liveability));
+
+  document.getElementById('stat-crime').textContent = totalCrime + '%';
+  document.getElementById('stat-stability').textContent = avgStab;
+  document.getElementById('stat-pop').textContent = totalPop + 'k';
+  document.getElementById('year-display').textContent = state.year;
+
+  const budgetEl = document.getElementById('budget-display');
+  budgetEl.textContent = state.budget;
+  budgetEl.parentElement.style.color = state.budget < 30 ? 'var(--danger)' : state.budget < 60 ? 'var(--warn)' : 'var(--accent2)';
+
+  document.getElementById('round-display').textContent = state.round;
+
+  const liveEl = document.getElementById('stat-live');
+  if (liveEl) {
+    liveEl.textContent = liveClamp;
+    liveEl.style.color = liveClamp > 60 ? 'var(--good)' : liveClamp > 35 ? 'var(--warn)' : 'var(--danger)';
+  }
+
+  // Show projected income for next round
+  const income = computeIncome();
+  const incomeEl = document.getElementById('income-projected');
+  if (incomeEl) {
+    incomeEl.textContent = '+$' + income.total + 'k next';
+    incomeEl.style.color = income.total >= 90 ? 'var(--good)' : income.total >= 65 ? 'var(--accent2)' : 'var(--warn)';
+    incomeEl.title = `Base $${income.base}k + zone bonuses $${income.bonus}k`;
+  }
+}
+
+function renderZoneDetail() {
+  const panel = document.getElementById('zone-detail-panel');
+  const z = state.selectedZone;
+  if (!z) { panel.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);font-style:italic">Click a zone on the map to manage it</div>`; return; }
+  const zd = state.zones[z];
+  const zinfo = ZONES[z];
+  const integration = getIntegrationScore(z);
+  const integColor = integration > 65 ? 'var(--good)' : integration > 35 ? 'var(--warn)' : 'var(--danger)';
+  const integLabel = integration > 65 ? 'Strong — new arrivals absorbed well' : integration > 35 ? 'Fragile — migrants settling uneasily' : 'Broken — arrivals have no community to join';
+  const pop = Math.round(zd.population);
+  const cap = Math.round(zd.housingStock);  // use actual built stock
+  const baseCap = ZONE_CAPACITY[z];
+  const overloaded = pop > cap;
+  const popColor = overloaded ? 'var(--danger)' : pop > cap * 0.85 ? 'var(--warn)' : 'var(--accent2)';
+  const popBar = Math.min(100, Math.round((pop / (cap * 1.3)) * 100));
+
+  const zoneTypes = Object.entries(MIGRANT_TYPES)
+    .filter(([t]) => (MIGRANT_TYPES[t].zoneBias[z] || 0) > 0.1)
+    .map(([t]) => `<span style="color:${MIGRANT_TYPES[t].color};font-family:'Courier Prime',monospace;font-size:0.52rem">${MIGRANT_TYPES[t].label}</span>`)
+    .join(', ');
+
+  const policeFeedback = zd.police >= 7 ? '⚠ Over-policed — residents losing trust, stability falling' : zd.police >= 5 ? '↘ Above level 6, policing starts hurting more than helping' : '';
+
+  panel.innerHTML = `
+    <div class="zone-detail">
+      <div class="zone-name" style="color:${zinfo.color}">${zinfo.name}</div>
+      <div class="zone-desc">${zinfo.desc}</div>
+      ${zd.redlined ? '<div style="margin-top:0.35rem;font-size:0.6rem;color:var(--danger);font-family:\'DM Mono\',monospace">⚠ RESTRICTIVE COVENANTS ACTIVE — +10 crime</div>' : ''}
+      ${zd.displaced > 0 ? `<div style="margin-top:0.25rem;font-size:0.6rem;color:var(--warn);font-family:'Courier Prime',monospace">⚠ ${Math.round(zd.displaced * 1000)} displaced families here</div>` : ''}
+      <div style="margin-top:0.35rem;font-size:0.6rem;color:var(--text-muted)">Arriving: ${zoneTypes || '—'}</div>
+      ${(() => {
+        const nextWave = MIGRATION_WAVES[state.round + 1] || {};
+        let nextPop = 0;
+        for (const [type, count] of Object.entries(nextWave)) {
+          const bias = (type === 'blackMigrant' && state.round >= 2)
+            ? { 1: 0.01, 2: 0.65, 3: 0.30, 4: 0.02, 5: 0.02 }
+            : MIGRANT_TYPES[type].zoneBias;
+          nextPop += count * (bias[z] || 0) * 0.28;
+        }
+        if (nextPop < 1) return '';
+        const color = nextPop > 8 ? 'var(--danger)' : nextPop > 4 ? 'var(--warn)' : 'var(--text-muted)';
+        return `<div style="margin-top:0.2rem;font-size:0.58rem;font-family:'Courier Prime',monospace;color:${color}">Next wave: ~${Math.round(nextPop)}k arriving here</div>`;
+      })()}
+    </div>
+
+    <div style="margin-bottom:0.5rem">
+      <div style="display:flex;justify-content:space-between;font-family:'Courier Prime',monospace;font-size:0.55rem;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.25rem">
+        <span style="color:var(--text-muted)">Population vs Housing</span>
+        <span style="color:${popColor}">${pop}k residents / ${cap}k built ${overloaded ? '⚠ OVERLOADED' : ''}</span>
+      </div>
+      <div style="height:4px;background:var(--border)">
+        <div style="height:100%;width:${popBar}%;background:${popColor};transition:width 0.4s"></div>
+      </div>
+      ${overloaded ? `<div style="font-size:0.55rem;color:var(--danger);font-family:'Courier Prime',monospace;margin-top:0.15rem">+${Math.round((pop-cap)*1.8)} crime pressure · housing investment builds ${zd.housing * 1.5}k/decade</div>` : `<div style="font-size:0.55rem;color:var(--text-muted);font-family:'Courier Prime',monospace;margin-top:0.15rem">Housing investment adding ${(zd.housing * 1.5).toFixed(1)}k units this decade</div>`}
+    </div>
+
+    <div style="margin-bottom:0.65rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem">
+      <div>
+        <div style="font-family:'Courier Prime',monospace;font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.06em;margin-bottom:0.2rem">Social Institutions</div>
+        <div style="height:4px;background:var(--border)"><div style="height:100%;width:${Math.round(zd.socialStock/80*100)}%;background:var(--good);transition:width 0.4s"></div></div>
+        <div style="font-size:0.5rem;color:var(--text-muted);font-family:'Courier Prime',monospace;margin-top:0.1rem">${Math.round(zd.socialStock)}/80 · +${(zd.social*2).toFixed(1)}/decade</div>
+      </div>
+      <div>
+        <div style="font-family:'Courier Prime',monospace;font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.06em;margin-bottom:0.2rem">Community Trust</div>
+        <div style="height:4px;background:var(--border)"><div style="height:100%;width:${Math.round(zd.communityTrust)}%;background:${zd.communityTrust > 60 ? 'var(--good)' : zd.communityTrust > 35 ? 'var(--warn)' : 'var(--danger)'};transition:width 0.4s"></div></div>
+        <div style="font-size:0.5rem;color:var(--text-muted);font-family:'Courier Prime',monospace;margin-top:0.1rem">${Math.round(zd.communityTrust)}/100 · ${zd.police >= 6 ? '↓ policing eroding' : '↑ building slowly'}</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:0.65rem">
+      <div style="display:flex;justify-content:space-between;font-family:'Courier Prime',monospace;font-size:0.55rem;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.25rem">
+        <span style="color:var(--text-muted)">Integration</span>
+        <span style="color:${integColor}">${integration}</span>
+      </div>
+      <div style="height:4px;background:var(--border)">
+        <div style="height:100%;width:${integration}%;background:${integColor};transition:width 0.4s"></div>
+      </div>
+      <div style="font-size:0.55rem;color:${integColor};font-family:'Courier Prime',monospace;margin-top:0.15rem">${integLabel}</div>
+    </div>
+
+    <div style="font-family:'Courier Prime',monospace;font-size:0.52rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.08em;margin-bottom:0.4rem">Resources (each $15k · tap +/− to adjust)</div>
+
+    ${renderTokenResource(z, 'police', '🚔', 'Police Patrols', policeFeedback || 'effective up to 6 — then costs more than it gains')}
+    ${renderTokenResource(z, 'social', '🏥', 'Social Services', '↑↑ integration · ↓↓ crime · key for absorbing migration')}
+    ${renderTokenResource(z, 'housing', '🏗️', 'Housing', `builds ${zd.housing * 1.5}k units this decade · built stock: ${Math.round(zd.housingStock)}k`)}
+    ${renderTokenResource(z, 'green', '🌳', 'Community Space', '↑↑ stability · slows cross-zone crime bleed')}`;
+}
+
+let lastAdvisorTexts = ['', '', ''];
+
+function renderAdvisors() {
+  const panel = document.getElementById('advisor-panel');
+  const advisors = getAdvisorMessages();
+
+  advisors.forEach((a, i) => {
+    const changed = a.text !== lastAdvisorTexts[i];
+    lastAdvisorTexts[i] = a.text;
+
+    // Find existing card or create new one
+    let card = panel.children[i];
+    if (!card) {
+      card = document.createElement('div');
+      panel.appendChild(card);
+    }
+
+    card.className = `advisor-card ${a.cls}${changed ? ' fresh' : ''}`;
+    card.innerHTML = `<div class="advisor-name">${a.name}</div><div class="advisor-text">${a.text}</div>`;
+
+    // Remove the animation class after it plays so it can re-trigger next time
+    if (changed) {
+      setTimeout(() => card.classList.remove('fresh'), 400);
+    }
+  });
+}
+
+function renderLog() {
+  document.getElementById('game-log').innerHTML = state.log.slice(0, 20)
+    .map(e => `<div class="log-entry ${e.type||''}"><span class="log-year">${e.year}</span>${e.text}</div>`).join('');
+}
+
+// Update zone ring border colour dynamically based on crime level
+// This supplements the canvas heat — gives a crisp CSS signal even at lower crime levels
+function renderZoneRingStates() {
+  const baseColors = { 1: '#e8c87a', 2: '#d4614a', 3: '#7eb8a4', 4: '#6ea8c8', 5: '#a87eb8' };
+  for (let z = 1; z <= 5; z++) {
+    const ring = document.getElementById('z' + z);
+    const crime = state.zones[z].crime;
+    // Below 40: zone colour at low opacity. 40-65: brightening. 65+: full danger red
+    if (crime >= 65) {
+      ring.style.borderColor = `rgba(212, 97, 74, ${0.5 + (crime - 65) / 70})`;
+      ring.style.boxShadow = `0 0 ${8 + (crime - 65) * 0.3}px rgba(212,97,74,0.25)`;
+    } else if (crime >= 40) {
+      const t = (crime - 40) / 25;
+      ring.style.borderColor = `rgba(212, 97, 74, ${t * 0.45})`;
+      ring.style.boxShadow = `0 0 ${t * 8}px rgba(212,97,74,${t * 0.15})`;
+    } else {
+      ring.style.borderColor = '';
+      ring.style.boxShadow = '';
+    }
+  }
+}
+
+function updateZoneCauseTags() {
+  const causeLabels = {
+    structural:   { text: 'Structural instability', color: '#d4614a' },
+    redlining:    { text: 'Redlining / displacement', color: '#c8784a' },
+    policing:     { text: 'Policing feedback', color: '#b8c8d8' },
+    overcrowding: { text: 'Overcrowding pressure', color: '#d4884a' },
+  };
+
+  for (let z = 1; z <= 5; z++) {
+    const ring = document.getElementById('z' + z);
+    // Remove any existing tag
+    const old = ring.querySelector('.crime-cause-tag');
+    if (old) old.remove();
+
+    const info = getCrimeHeatInfo(z);
+    if (!info) continue;
+
+    const lbl = causeLabels[info.cause];
+    if (!lbl) continue;
+
+    const tag = document.createElement('div');
+    tag.className = 'crime-cause-tag';
+    tag.textContent = lbl.text;
+    tag.style.color = lbl.color;
+    tag.style.borderColor = lbl.color + '80';
+    tag.style.background = 'rgba(15,14,12,0.85)';
+    // Position at bottom of zone ring
+    tag.style.bottom = '8%';
+    tag.style.left = '50%';
+    tag.style.transform = 'translateX(-50%)';
+    ring.appendChild(tag);
+  }
+}
+
+function renderAll() {
+  renderCrimeBars(); renderStats(); renderZoneDetail(); renderAdvisors(); renderLog();
+  updateZoneCauseTags();
+  renderZoneRingStates();
+  for (let z = 1; z <= 5; z++) document.getElementById('z'+z).classList.toggle('selected', state.selectedZone === z);
+}
+
+// ===================================================
+// INTERACTIONS
+// ===================================================
+function selectZone(z) { state.selectedZone = z; renderAll(); }
+
+function renderTokenResource(zone, resource, icon, label, hint) {
+  const val = state.zones[zone][resource];
+  const MAX = 10;
+  // Pip colour by resource type and value
+  const pipClass = resource === 'police' && val >= 7 ? 'danger'
+    : resource === 'police' && val >= 5 ? 'warn'
+    : resource === 'social' || resource === 'green' ? 'good'
+    : resource === 'housing' ? 'good'
+    : '';
+  const pips = Array.from({length: MAX}, (_, i) =>
+    `<div class="pip ${i < val ? 'filled ' + pipClass : ''}"></div>`
+  ).join('');
+
+  const hintColor = resource === 'police' && val >= 7 ? 'var(--danger)'
+    : resource === 'police' && val >= 5 ? 'var(--warn)'
+    : 'var(--text-muted)';
+
+  return `<div class="resource-row">
+    <div class="resource-icon">${icon}</div>
+    <div class="resource-info">
+      <div class="resource-name">${label}</div>
+      <div class="token-row">
+        <button class="token-btn minus" onclick="adjustResource(${zone},'${resource}',-1)" ${val <= 0 ? 'disabled' : ''}>−</button>
+        <div class="token-pips">${pips}</div>
+        <button class="token-btn" onclick="adjustResource(${zone},'${resource}',1)" ${val >= MAX ? 'disabled' : ''}>+</button>
+        <div class="token-val">${val}</div>
+      </div>
+      <div class="resource-hint" style="color:${hintColor}">${hint}</div>
+    </div>
+  </div>`;
+}
+
+function adjustResource(zone, resource, delta) {
+  const old = state.zones[zone][resource];
+  const newVal = old + delta;
+  if (newVal < 0 || newVal > 10) return;
+  const cost = delta * 15;
+  if (cost > 0 && state.budget < cost) {
+    // Flash budget display
+    const bd = document.getElementById('budget-display');
+    if (bd) { bd.parentElement.style.animation = 'none'; bd.parentElement.style.color = 'var(--danger)'; setTimeout(() => renderStats(), 600); }
+    return;
+  }
+  state.budget -= cost;
+  state.zones[zone][resource] = newVal;
+  // Track what changed this round for the summary
+  if (!state.roundChanges[zone]) state.roundChanges[zone] = {};
+  if (!state.roundChanges[zone][resource]) state.roundChanges[zone][resource] = { from: old, to: old };
+  state.roundChanges[zone][resource].to = newVal;
+  renderZoneDetail();
+  renderStats();
+}
+
+// ===================================================
+// ROUND SUMMARY SYSTEM
+// ===================================================
+
+// Called at the START of doAdvance — shows what last round's allocations did
+function showRoundSummary(prevSnapshot, newValues, integrationScores) {
+  const yearEl = document.getElementById('summary-year-label');
+  const title = document.getElementById('summary-title');
+  const zonesEl = document.getElementById('summary-zones');
+  const insightsEl = document.getElementById('summary-insights');
+  const budgetEl = document.getElementById('summary-budget');
+
+  yearEl.textContent = `${state.year - 5}–${state.year}`;
+  title.textContent = state.round <= 2 ? 'Early Decade Report' : state.round <= 5 ? 'Decade Report' : 'Crisis Report';
+
+  // Zone-by-zone before/after table
+  let zonesHtml = '';
+  for (let z = 1; z <= 5; z++) {
+    const prev = prevSnapshot[z];
+    const next = newValues[z];
+    const crimeDiff = next.crime - prev.crime;
+    const stabDiff = next.stability - prev.stability;
+    const integDiff = integrationScores[z] - (prevSnapshot[z].integration || 50);
+
+    const crimeArrow = crimeDiff > 2 ? '↑' : crimeDiff < -2 ? '↓' : '→';
+    const stabArrow  = stabDiff  > 2 ? '↑' : stabDiff  < -2 ? '↓' : '→';
+    const integArrow = integDiff > 2 ? '↑' : integDiff < -2 ? '↓' : '→';
+
+    const crimeClass = crimeDiff > 2 ? 'up' : crimeDiff < -2 ? 'down' : 'flat';
+    const stabClass  = stabDiff  > 2 ? 'down' : stabDiff  < -2 ? 'up' : 'flat'; // stability up is good
+    const integClass = integDiff > 2 ? 'down' : integDiff < -2 ? 'up' : 'flat'; // integration up is good
+
+    zonesHtml += `<div class="summary-zone-row">
+      <span class="summary-zone-name" style="color:${ZONES[z].color}">${ZONES[z].shortName}</span>
+      <span class="delta ${crimeClass}">${crimeArrow} ${Math.round(prev.crime)}→${Math.round(next.crime)}</span>
+      <span class="delta ${stabClass}">${stabArrow} ${Math.round(prev.stability)}→${Math.round(next.stability)}</span>
+      <span class="delta ${integClass}">${integArrow} ${Math.round(integrationScores[z])}</span>
+    </div>`;
+  }
+  zonesEl.innerHTML = zonesHtml;
+
+  // Insights — pulled from changes + state
+  const insights = generateSummaryInsights(prevSnapshot, newValues, integrationScores);
+  insightsEl.innerHTML = insights.map(i =>
+    `<div class="summary-insight ${i.type}">${i.text}</div>`
+  ).join('');
+
+  budgetEl.textContent = `Budget: $${state.budget}k`;
+
+  // Income breakdown
+  const inc = state.lastIncome;
+  if (inc) {
+    const incHtml = `
+      <div style="margin-bottom:0.75rem;padding:0.65rem;background:var(--surface2);border:1px solid var(--border)">
+        <div style="font-family:'Courier Prime',monospace;font-size:0.55rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:0.4rem">
+          Income this decade — $${inc.total}k
+          <span style="color:var(--text-muted);margin-left:0.4rem">(base $${inc.base}k + zone bonuses $${inc.bonus}k)</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.3rem">
+          ${[1,2,3,4,5].map(z => {
+            const b = inc.breakdown[z];
+            const col = b.bonus >= 12 ? 'var(--good)' : b.bonus >= 6 ? 'var(--accent2)' : 'var(--warn)';
+            return `<div style="text-align:center">
+              <div style="font-family:'Courier Prime',monospace;font-size:0.65rem;color:${col}">+$${b.bonus}k</div>
+              <div style="font-size:0.5rem;color:var(--text-muted);font-family:'Courier Prime',monospace">${ZONES[z].shortName}</div>
+              <div style="height:3px;background:var(--border);margin-top:0.15rem">
+                <div style="height:100%;width:${b.score}%;background:${col}"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${inc.bonus < 30 ? `<div style="font-size:0.6rem;color:var(--warn);font-family:'Courier Prime',monospace;margin-top:0.4rem">↓ Low zone income — invest in stability and integration to earn more next decade</div>` :
+          inc.bonus > 55 ? `<div style="font-size:0.6rem;color:var(--good);font-family:'Courier Prime',monospace;margin-top:0.4rem">↑ Strong zone income — integrated, stable zones are generating real returns</div>` : ''}
+      </div>`;
+    insightsEl.innerHTML = incHtml + insightsEl.innerHTML;
+  }
+
+  document.getElementById('summary-overlay').classList.add('show');
+}
+
+function generateSummaryInsights(prev, next, integration) {
+  const insights = [];
+  const changes = state.roundChanges || {};
+
+  // What the player actually did — resource changes that made a difference
+  for (let z = 1; z <= 5; z++) {
+    const zChanges = changes[z] || {};
+    const crimeDiff = next[z].crime - prev[z].crime;
+
+    for (const [res, change] of Object.entries(zChanges)) {
+      const delta = change.to - change.from;
+      if (delta === 0) continue;
+      const zname = ZONES[z].shortName;
+
+      if (res === 'social' && delta > 0 && crimeDiff < -5)
+        insights.push({ type: 'good', text: `${zname}: Raising social services by ${delta} helped — crime fell ${Math.abs(Math.round(crimeDiff))} points. Social investment is addressing root causes.` });
+      if (res === 'social' && delta > 0 && state.zones[z].population > ZONE_CAPACITY[z] && crimeDiff > 0)
+        insights.push({ type: 'warn', text: `${zname}: Social services went up but crime still rose — overcrowding is overwhelming the investment. Housing needed first.` });
+      if (res === 'housing' && delta > 0 && crimeDiff < -3)
+        insights.push({ type: 'good', text: `${zname}: Housing investment expanded capacity — overcrowding pressure eased, crime responded.` });
+      if (res === 'police' && change.to >= 7 && crimeDiff > -3)
+        insights.push({ type: 'crit', text: `${zname}: Police raised to ${change.to} but crime barely moved. Heavy policing is generating recorded crime as fast as it suppresses it.` });
+      if (res === 'police' && delta < 0 && change.to <= 3 && crimeDiff > 5)
+        insights.push({ type: 'warn', text: `${zname}: Cutting police to ${change.to} left the zone exposed — crime climbed ${Math.round(crimeDiff)} points.` });
+      if (res === 'green' && delta > 0) {
+        const stabDiff = next[z].stability - prev[z].stability;
+        if (stabDiff > 5) insights.push({ type: 'good', text: `${zname}: Community space investment showing — stability up ${Math.round(stabDiff)} points this decade.` });
+      }
+    }
+  }
+
+  // Structural observations the player didn't cause but should notice
+  for (let z = 1; z <= 5; z++) {
+    const crimeDiff = next[z].crime - prev[z].crime;
+    const zd = state.zones[z];
+    const zname = ZONES[z].shortName;
+    const cap = Math.round(zd.housingStock);
+
+    if (zd.population > cap && crimeDiff > 8 && !Object.keys(changes[z] || {}).length)
+      insights.push({ type: 'crit', text: `${zname}: No changes made, but population hit ${Math.round(zd.population)}k against a ${cap}k cap — migration pressure is doing the damage.` });
+    if (z > 1 && next[z].crime - prev[z].crime > 6 && next[z-1].crime > 55)
+      insights.push({ type: 'warn', text: `${zname}: Crime bled in from Zone ${z-1} (${Math.round(next[z-1].crime)}%). Fixing the inner zone would reduce pressure here too.` });
+    if (integration[z] < 30 && crimeDiff > 0)
+      insights.push({ type: 'crit', text: `${zname}: Integration score critically low — new arrivals have no community infrastructure to join. Social services and green space rebuild this.` });
+    if (integration[z] > 70 && zd.population > cap * 0.9 && crimeDiff < 2)
+      insights.push({ type: 'good', text: `${zname}: Strong integration absorbing a packed zone — community fabric is doing real work here.` });
+  }
+
+  // Overall pattern observations
+  const totalPolice = Object.values(state.zones).reduce((s, zd) => s + zd.police, 0);
+  const totalSocial = Object.values(state.zones).reduce((s, zd) => s + zd.social, 0);
+  if (totalPolice > totalSocial + 8)
+    insights.push({ type: 'warn', text: `City-wide, you're spending significantly more on policing than social services. This pattern tends to record crime rather than reduce it — and erodes community trust across zones.` });
+  if (totalSocial > totalPolice + 5)
+    insights.push({ type: 'good', text: `Social investment is outpacing policing city-wide — you're building integration capacity. The effects compound over time.` });
+
+  // Cap at 5 insights to keep it readable
+  return insights.slice(0, 5);
+}
+
+function closeSummary() {
+  document.getElementById('summary-overlay').classList.remove('show');
+  state.roundChanges = {}; // reset for next round
+  renderAll();
+}
+
+
+// Zone capacity thresholds — base housing capacity before investment
+const ZONE_CAPACITY = { 1: 12, 2: 30, 3: 45, 4: 38, 5: 28 };
+
+// Integration score now derived from accumulated stocks and community trust
+function getIntegrationScore(z) {
+  const zd = state.zones[z];
+  let score = 30;
+  score += (zd.socialStock / 80) * 35;     // social institutions: up to +35
+  score += (zd.greenStock / 60) * 15;      // community space: up to +15
+  score += (zd.communityTrust / 100) * 20; // trust in institutions: up to +20
+  score -= zd.displaced * 4;
+  if (zd.redlined) score -= 15;
+  const overload = Math.max(0, zd.population - zd.housingStock);
+  if (overload > 0) score -= overload * 1.5;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// ===================================================
+// INFRASTRUCTURE STOCK ADVANCEMENT
+// Called each round before crime is computed.
+// Each resource level drives a build rate — like a flow into a tank.
+// The tank (stock) has a natural decay rate when underfunded.
+// ===================================================
+function advanceInfrastructure(z) {
+  const zd = state.zones[z];
+
+  // ── Housing stock ──
+  // Build rate needs to be able to keep pace with migration at high investment.
+  // At level 5: builds 15k/decade. Round 2 wave adds ~12k to Z2. Keeps up.
+  // At level 2: builds 6k/decade. Falls behind a major wave. Creates real pressure.
+  const maxHousingStock = ZONE_CAPACITY[z] * 3;
+  const housingBuildRate = zd.housing * 3;       // was 1.5 — tripled
+  const housingDecay = zd.housingStock * 0.025;  // slight reduction in decay
+  zd.housingStock = Math.min(maxHousingStock,
+    Math.max(ZONE_CAPACITY[z] * 0.4, zd.housingStock + housingBuildRate - housingDecay));
+
+  // ── Social stock ──
+  // At level 5: +10/decade. Reaches meaningful effect (~40) in 3 rounds.
+  // At level 0: decays from starting stock — visible deterioration
+  const maxSocialStock = 80;
+  const socialBuildRate = zd.social * 2.5;    // was 2
+  const socialDecay = zd.socialStock * 0.04;  // slightly reduced decay
+  zd.socialStock = Math.min(maxSocialStock,
+    Math.max(0, zd.socialStock + socialBuildRate - socialDecay));
+
+  // ── Green stock ──
+  const maxGreenStock = 60;
+  const greenBuildRate = zd.green * 2;         // was 1.5
+  const greenDecay = zd.greenStock * 0.018;
+  zd.greenStock = Math.min(maxGreenStock,
+    Math.max(0, zd.greenStock + greenBuildRate - greenDecay));
+
+  // ── Community trust ──
+  const trustBuild = (zd.social * 1.5) + (zd.green * 1.0);  // slightly increased
+  const trustFromPolice = zd.police <= 3 ? zd.police * 0.6
+    : zd.police <= 6 ? -(zd.police - 3) * 1.5
+    : -(zd.police - 6) * 4 - 4.5;
+  const trustDecay = zd.communityTrust * 0.035;
+  zd.communityTrust = Math.min(100,
+    Math.max(5, zd.communityTrust + trustBuild + trustFromPolice - trustDecay));
+  if (zd.redlined)    zd.communityTrust = Math.max(5, zd.communityTrust - 3);
+  if (zd.displaced > 0) zd.communityTrust = Math.max(5, zd.communityTrust - zd.displaced * 2);
+}
+
+function computeNewCrimeAndStability(z) {
+  const zd = state.zones[z];
+  const pop = zd.population;
+  const capacity = ZONE_CAPACITY[z];
+
+  // Use housing STOCK (accumulated construction) as effective capacity
+  // Not just current investment level — what's actually been built
+  const effectiveCapacity = zd.housingStock;
+  const integration = getIntegrationScore(z);
+
+  // ── Structural baseline ──
+  const structuralResting = { 1: 28, 2: 58, 3: 32, 4: 28, 5: 22 }[z];
+  const totalResources = zd.police + zd.social + zd.housing + zd.green;
+  const neglectFactor = totalResources < 4 ? 0.45 : 0.25;
+  let crime = zd.crime + (structuralResting - zd.crime) * neglectFactor;
+
+  // ── Overcrowding — against housing stock, not static capacity ──
+  if (pop > effectiveCapacity) {
+    const overload = pop - effectiveCapacity;
+    const absorb = integration / 100;
+    crime += overload * (1.8 - absorb * 0.8);
+  }
+
+  // ── Police: immediate effect, but feedback modulated by community trust ──
+  const p = zd.police;
+  let policeEffect = 0;
+  let policingStabPenalty = 0;
+  if (p <= 3) {
+    policeEffect = p * 4.5;
+  } else if (p <= 6) {
+    policeEffect = 13.5 + (p - 3) * 2;
+    policingStabPenalty = (p - 3) * 5;
+  } else {
+    policeEffect = 19.5 + (p - 6) * 0.5;
+    policingStabPenalty = 15 + (p - 6) * 9;
+    crime += (p - 6) * 2; // recorded crime inflation
+  }
+  // Low community trust reduces police effectiveness — residents don't cooperate
+  const trustModifier = zd.communityTrust / 100; // 0–1
+  crime -= policeEffect * (0.5 + trustModifier * 0.5); // trust scales 50–100% of effect
+
+  // ── Social services: effect scales with social STOCK ──
+  // Stock 0–80, effect range 0–25 (was 0–10). Sustained investment is the primary lever.
+  const socialEffect = (zd.socialStock / 80) * 25;
+  crime -= socialEffect;
+  // Overcrowding relief from high social stock
+  if (zd.socialStock > 20 && pop > effectiveCapacity) {
+    crime -= Math.min(pop - effectiveCapacity, (zd.socialStock - 20) / 8) * 1.0;
+  }
+
+  // ── Green / community space: effect from green STOCK ──
+  // Stock 0–60, effect range 0–10 (was 0–5). Meaningful but secondary.
+  const greenEffect = (zd.greenStock / 60) * 10;
+  crime -= greenEffect;
+
+  // ── Redlining ──
+  if (zd.redlined) crime += 10;
+
+  // ── Displacement ──
+  if (zd.displaced > 0) {
+    const dispImpact = 4 - (integration / 100) * 2;
+    crime += zd.displaced * dispImpact;
+    zd.displaced = Math.max(0, zd.displaced - 0.4);
+  }
+
+  // ── Cross-zone contagion ──
+  if (z > 1 && state.zones[z - 1]) {
+    const innerCrime = state.zones[z - 1].crime;
+    if (innerCrime > 40) crime += (innerCrime - 40) * 0.18;
+  }
+  if (z < 5 && state.zones[z + 1]) {
+    const outerCrime = state.zones[z + 1].crime;
+    if (outerCrime > 35) crime += (outerCrime - 35) * 0.12;
+  }
+
+  // ── Absolute neglect penalty ──
+  if (zd.police === 0 && zd.social <= 1) crime += 15;
+  else if (zd.police === 0) crime += 6;
+  if (zd.social === 0 && zd.housing <= 1) crime += 10;
+
+  // ── Zone 2 structural floor ──
+  if (z === 2) crime = Math.max(crime, 32);
+
+  crime += (Math.random() - 0.5) * 5;
+  crime = Math.max(5, Math.min(95, Math.round(crime)));
+
+  // ── Stability — uses stocks and community trust ──
+  let stability = ZONES[z].baseStability;
+  stability += (zd.socialStock / 80) * 30;    // social stock: up to +30
+  stability += (zd.housingStock / (ZONE_CAPACITY[z] * 2.5)) * 20; // housing adequacy: up to +20
+  stability += (zd.greenStock / 60) * 15;     // green stock: up to +15
+  stability += (zd.communityTrust - 50) * 0.4; // trust: ±20 either way
+  stability -= crime * 0.55;
+  stability -= policingStabPenalty;
+  if (zd.redlined) stability -= 20;
+  if (zd.displaced > 0) stability -= zd.displaced * 5;
+  if (pop > effectiveCapacity + 3) stability -= (pop - effectiveCapacity - 3) * 2;
+  if (totalResources < 4) stability -= (4 - totalResources) * 5;
+  stability += (integration - 50) * 0.3;
+  stability = Math.max(5, Math.min(100, Math.round(stability)));
+
+  return { crime, stability, integration };
+}
+
+function generateDebrief(prevState, nextZones, integrationScores) {
+  const lines = [];
+
+  for (let z = 1; z <= 5; z++) {
+    const prev = prevState[z];
+    const next = nextZones[z];
+    const diff = next.crime - prev.crime;
+    const zd = state.zones[z];
+    const integ = integrationScores[z];
+    const zname = ZONES[z].shortName;
+    const cap = Math.round(zd.housingStock);
+
+    if (Math.abs(diff) < 3) {
+      // Even stable zones get flagged if integration is low — warning of future trouble
+      if (integ < 30 && zd.population > cap * 0.8) {
+        lines.push({ text: `${zname}: stable now but integration score low — next wave will hit hard.`, type: 'important' });
+      }
+      continue;
+    }
+
+    if (diff > 12) {
+      if (zd.displaced > 0) lines.push({ text: `${zname}: displaced families arriving with no support network — crime spiking.`, type: 'discovery' });
+      else if (zd.population > cap) lines.push({ text: `${zname}: overwhelmed — ${Math.round(zd.population)}k residents, capacity ${cap}k.`, type: 'critical' });
+      else if (zd.police === 0 && zd.social <= 1) lines.push({ text: `${zname}: completely unresourced — crime spiralling.`, type: 'critical' });
+      else lines.push({ text: `${zname}: crime surge — check resourcing and overcrowding.`, type: 'critical' });
+    } else if (diff > 5) {
+      if (integ < 35) lines.push({ text: `${zname}: new arrivals not being integrated — community fragmentation driving crime up.`, type: 'important' });
+      else lines.push({ text: `${zname}: crime rising — ${zd.population > cap ? 'overcrowding pressure' : 'under-resourced'}.`, type: 'important' });
+    } else if (diff < -10) {
+      const driver = zd.social >= 5 ? 'social investment' : zd.housing >= 5 ? 'housing' : 'combined investment';
+      lines.push({ text: `${zname}: strong improvement — ${driver} absorbing the pressure.`, type: 'important' });
+    } else if (diff < -4) {
+      lines.push({ text: `${zname}: gradually improving. Keep the investment going.`, type: '' });
+    }
+
+    // Integration-specific feedback
+    if (integ >= 70 && zd.population > cap * 0.9) {
+      lines.push({ text: `${zname}: high integration absorbing overcrowding — social fabric holding.`, type: '' });
+    }
+    if (integ < 25 && diff > 0) {
+      lines.push({ text: `${zname}: low integration — new arrivals have no community to join. Social services needed.`, type: 'discovery' });
+    }
+
+    // Policing feedback
+    if (zd.police >= 7 && diff > -2) {
+      lines.push({ text: `${zname}: ${zd.police} police units, crime barely moving. Heavy policing recording more than it prevents.`, type: 'critical' });
+    }
+
+    // Cross-zone bleed
+    if (z > 1 && state.zones[z - 1].crime > 50 && diff > 3) {
+      lines.push({ text: `${zname}: pressure bleeding in from Zone ${z - 1}.`, type: 'important' });
+    }
+    // Outer zone neglect spreading inward
+    if (z < 5 && state.zones[z + 1].crime > 40 && diff > 3) {
+      lines.push({ text: `${zname}: instability in Zone ${z + 1} now pulling crime inward.`, type: 'important' });
+    }
+  }
+
+  if (state.budget < 25) lines.push({ text: `Budget critical — you cannot resource all zones. Choose carefully.`, type: 'critical' });
+  else if (state.budget < 50) lines.push({ text: `Budget tight this decade. Prioritise zones under most pressure.`, type: 'important' });
+
+  return lines;
+}
+
+function advanceYear() {
+  if (state.round > 8) return;
+  const event = EVENTS.find(e => e.round === state.round);
+  if (event && !state.discoveredProblems.includes(event.title)) {
+    if (event.effect) event.effect();
+    state.discoveredProblems.push(event.title);
+    showEvent(event);
+    return;
+  }
+  doAdvance();
+}
+
+function doAdvance() {
+  state.year += 5;
+  state.round += 1;
+  // Dynamic income — computed before stocks advance (reflects last round's performance)
+  const income = computeIncome();
+  state.budget += income.total;
+  state.lastIncome = income; // store for summary display
+  state.arrivalCount = 0;
+  document.getElementById('arrival-count').textContent = 0;
+
+  const prevSnapshot = {};
+  for (let z = 1; z <= 5; z++) prevSnapshot[z] = {
+    crime: state.zones[z].crime,
+    stability: state.zones[z].stability,
+    integration: getIntegrationScore(z)
+  };
+
+  // Population grows from migration — 0.28 multiplier (was 0.38)
+  // Still creates real pressure but housing investment at level 4+ can keep up
+  const wave = MIGRATION_WAVES[state.round] || {};
+  for (const [type, count] of Object.entries(wave)) {
+    const bias = MIGRANT_TYPES[type].zoneBias;
+    const adjustedBias = (type === 'blackMigrant' && state.round >= 3)
+      ? { 1: 0.01, 2: 0.65, 3: 0.30, 4: 0.02, 5: 0.02 }
+      : bias;
+    for (const [z, prob] of Object.entries(adjustedBias)) {
+      state.zones[parseInt(z)].population += count * prob * 0.28;
+    }
+  }
+  for (let z = 1; z <= 5; z++) state.zones[z].population = Math.min(99, state.zones[z].population);
+
+  // Advance infrastructure stocks before computing crime
+  for (let z = 1; z <= 5; z++) advanceInfrastructure(z);
+
+  const integrationScores = {};
+  for (let z = 1; z <= 5; z++) integrationScores[z] = getIntegrationScore(z);
+
+  const newValues = {};
+  for (let z = 1; z <= 5; z++) newValues[z] = computeNewCrimeAndStability(z);
+
+  const debriefLines = generateDebrief(prevSnapshot, newValues, integrationScores);
+
+  for (let z = 1; z <= 5; z++) {
+    state.prevCrime[z] = state.zones[z].crime; // snapshot before overwrite
+    state.zones[z].crime = newValues[z].crime;
+    state.zones[z].stability = newValues[z].stability;
+  }
+
+  debriefLines.forEach(l => state.log.unshift({ year: state.year, text: l.text, type: l.type }));
+
+  if (Object.keys(wave).length) {
+    const dominant = Object.entries(wave).sort((a, b) => b[1] - a[1])[0];
+    const typeDef = MIGRANT_TYPES[dominant[0]];
+    const total = Object.values(wave).reduce((s, v) => s + v, 0);
+    if (typeDef) state.log.unshift({ year: state.year, text: `${total} families arrived — led by ${typeDef.label}`, type: 'important' });
+  }
+
+  if (state.round > 8) { showEndScreen(); return; }
+
+  spawnWave(state.round);
+
+  // Show summary BEFORE player allocates — summary close calls renderAll
+  showRoundSummary(prevSnapshot, newValues, integrationScores);
+}
+
+function showEvent(event) {
+  document.getElementById('event-year').textContent = state.year;
+  document.getElementById('event-title').textContent = event.title;
+  document.getElementById('event-body').textContent = event.body;
+  document.getElementById('event-theory').textContent = '📚 ' + event.theory;
+  document.getElementById('event-overlay').classList.add('show');
+}
+
+function closeEvent() {
+  document.getElementById('event-overlay').classList.remove('show');
+  doAdvance();
+}
+
+function computeFinalScore() {
+  // ── Pillar 1: City Stability ──
+  // Weighted toward inner zones where stability is hardest to achieve
+  const stabilityWeights = { 1: 0.15, 2: 0.30, 3: 0.25, 4: 0.20, 5: 0.10 };
+  const stabilityScore = Math.round(
+    Object.entries(state.zones).reduce((s, [z, zd]) => s + zd.stability * stabilityWeights[z], 0)
+  );
+
+  // ── Pillar 2: Equity ──
+  // Measures how evenly outcomes are distributed across zones.
+  // A city where Zone II is in crisis but Zone V is fine scores poorly —
+  // that's stability purchased through exclusion, not genuine improvement.
+  const innerCrime  = (state.zones[2].crime + state.zones[3].crime) / 2;
+  const outerCrime  = (state.zones[4].crime + state.zones[5].crime) / 2;
+  const crimeGap    = innerCrime - outerCrime;  // 0 = equal; 60 = very unequal
+  const equityScore = Math.round(Math.max(0, 100 - crimeGap * 1.5));
+
+  // ── Pillar 3: Integration ──
+  // Average integration score across all zones at game end.
+  // Rewards sustained social and housing investment over policing-first strategies.
+  const integrationScore = Math.round(
+    Object.keys(state.zones).reduce((s, z) => s + getIntegrationScore(parseInt(z)), 0) / 5
+  );
+
+  // ── Outcome tier ──
+  // All three pillars must clear their threshold for the best outcome.
+  // Partial success is possible — the city held together, but not equitably.
+  const tier =
+    stabilityScore >= 55 && equityScore >= 50 && integrationScore >= 45 ? 'thriving'  :
+    stabilityScore >= 45 && equityScore >= 35                            ? 'managed'   :
+    equityScore < 35 && stabilityScore >= 45                            ? 'unequal'   :
+                                                                           'collapsed' ;
+
+  return { stabilityScore, equityScore, integrationScore, tier };
+}
+
+function showEndScreen() {
+  const problems = state.discoveredProblems;
+  const { stabilityScore, equityScore, integrationScore, tier } = computeFinalScore();
+
+  const titles = {
+    thriving:  'A City That Held Together',
+    managed:   'Stability at a Price',
+    unequal:   'Two Cities, One Map',
+    collapsed: 'Social Disorganisation'
+  };
+
+  const summaries = {
+    thriving: `After ${state.year - 1920} years you built something the Chicago School rarely modelled — a city that absorbed wave after wave of migration without sacrificing its inner zones to keep the outer ones stable. Integration scores held, the crime gap between zones stayed narrow, and social infrastructure compounded over time. The model's predictions were right about where pressure would fall. What it didn't predict was that sustained investment could change the outcome.`,
+
+    managed: `After ${state.year - 1920} years the city is functional — crime is contained, the outer zones are stable. But look at the numbers more carefully. Zone II never really recovered. The stability you achieved was real, but it was built partly on keeping disadvantage concentrated where the model said it would always be. The Chicago School would call this equilibrium. A resident of Zone II might call it something else.`,
+
+    unequal: `After ${state.year - 1920} years the outer zones look fine on paper. But the crime gap between Zone II and Zone IV tells the real story — the stability you achieved was distributed very unevenly. This is the Chicago School model working as described: the city reaches a kind of equilibrium, but the cost is borne almost entirely by the transition zone and its residents. The map looks stable. The city isn't.`,
+
+    collapsed: `After ${state.year - 1920} years the city shows what the Chicago School called social disorganisation — the breakdown of community institutions under the strain of rapid change, concentrated disadvantage, and inadequate support. The model predicted this. What it was less clear about was how much of it was inevitable and how much was the result of choices made about where to invest, who to police, and whose housing got built.`
+  };
+
+  document.getElementById('end-title').textContent = titles[tier];
+  document.getElementById('end-summary').textContent = summaries[tier];
+
+  // Score display
+  const scoreHtml = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1.5rem 0;padding:1.25rem;background:var(--surface2);border:1px solid var(--border)">
+      ${[
+        { label: 'Stability', val: stabilityScore, threshold: 55, note: 'weighted toward inner zones' },
+        { label: 'Equity', val: equityScore, threshold: 50, note: 'crime gap inner vs outer' },
+        { label: 'Integration', val: integrationScore, threshold: 45, note: 'community absorption capacity' }
+      ].map(p => {
+        const met = p.val >= p.threshold;
+        const col = p.val >= p.threshold + 10 ? 'var(--good)' : p.val >= p.threshold ? 'var(--accent2)' : p.val >= p.threshold - 15 ? 'var(--warn)' : 'var(--danger)';
+        return `<div style="text-align:center">
+          <div style="font-family:'IM Fell English',serif;font-size:2rem;color:${col};line-height:1">${p.val}</div>
+          <div style="font-family:'Courier Prime',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);margin:0.3rem 0">${p.label}</div>
+          <div style="font-size:0.58rem;color:${met ? 'var(--good)' : 'var(--danger)'}">threshold ${p.threshold} — ${met ? '✓ met' : '✗ missed'}</div>
+          <div style="font-size:0.55rem;color:var(--text-muted);margin-top:0.15rem">${p.note}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Contextual findings based on what actually happened in this playthrough
+  const findings = [];
+
+  // Always show what the model got right
+  findings.push({ title: 'What the Chicago School got right', text: 'Social disorganisation theory correctly identified that concentrated disadvantage correlates with crime — and that this pattern persists across different populations in the same zones. Your city demonstrated exactly that. Zone II remained the most volatile zone regardless of who lived there.' });
+
+  if (problems.includes('racial_exclusion')) {
+    findings.push({ title: 'Race was never neutral', text: `The model described zone patterns as natural ecological succession. But the dot patterns you watched were legally constructed — restrictive covenants forced Black migrants into Zone II not because of any characteristic of those families, but because everywhere else was legally closed to them. The "natural" pattern was a political one.` });
+  }
+
+  if (problems.includes('policing_bias')) {
+    findings.push({ title: 'The crime map reflects where police looked', text: 'Heavy policing in Zone II generated more recorded crime — a self-fulfilling prophecy. The statistics confirmed the model\'s predictions while obscuring how those predictions were being manufactured. Community trust fell, police effectiveness fell, and the numbers kept climbing.' });
+  }
+
+  if (problems.includes('crime_migration')) {
+    findings.push({ title: 'Displacement relocated disadvantage', text: 'When Zone II was cleared, crime moved to Zone III. The families displaced by urban renewal carried concentrated disadvantage with them — not because of anything about those families, but because they arrived in new zones without community networks, housing, or services. The model predicted Zone II\'s instability. It didn\'t predict that clearing Zone II would recreate it elsewhere.' });
+  }
+
+  if (equityScore < 40) {
+    findings.push({ title: 'Stability purchased through inequality', text: `Your outer zones finished with substantially lower crime than Zone II — but look at what that gap represents. The stability in Zones IV and V was partly produced by concentrating disadvantage inward. The Chicago School described this as urban ecology. Critics called it a political choice dressed up as natural law.` });
+  }
+
+  if (integrationScore >= 55) {
+    findings.push({ title: 'Integration as the missing variable', text: 'Your sustained investment in social infrastructure and community space produced high integration scores — which meant new arrivals were absorbed into functioning community networks rather than arriving into a vacuum. This is what the Chicago School\'s ecological model couldn\'t fully capture: communities aren\'t passive recipients of urban forces. They actively shape outcomes when they have resources to do so.' });
+  }
+
+  document.getElementById('end-findings').innerHTML =
+    scoreHtml + findings.map(f => `<div class="finding-item"><h4>${f.title}</h4><p>${f.text}</p></div>`).join('');
+
+  document.getElementById('end-screen').style.display = 'block';
+  animRunning = false;
+  cancelAnimationFrame(animFrame);
+}
+
+// ===================================================
+// INIT
+// ===================================================
+function startGame() {
+  document.getElementById('intro').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  initZones();
+
+  state.log.unshift({ year: 1920, text: "City founded. Zones established per Burgess model.", type: "important" });
+  state.log.unshift({ year: 1920, text: "Zone II already showing signs of social disorganisation.", type: "critical" });
+
+  // Init canvas after layout
+  setTimeout(() => {
+    initCanvas();
+    startAnimation();
+    spawnWave(1);
+    renderAll();
+  }, 100);
+}
+</script>
+</body>
+</html>
